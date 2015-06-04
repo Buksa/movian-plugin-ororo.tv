@@ -16,13 +16,14 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-//ver 0.7.1
+//ver 0.7.2
 var http = require('showtime/http');
 var html = require('showtime/html');
 (function(plugin) {
     var plugin_info = plugin.getDescriptor();
     var PREFIX = plugin_info.id;
-    var USER_AGENT = 'Mozilla/5.0 (Windows NT 6.3; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.90 Safari/537.36 OPR/29.0.1795.47';
+    var USER_AGENT = //'Mozilla/5.0 (Windows NT 6.3; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.90 Safari/537.36 OPR/29.0.1795.47';
+    'Mozilla/5.0 (iPad; U; CPU OS 3_2 like Mac OS X; en-us) AppleWebKit/531.21.10 (KHTML, like Gecko) Version/4.0.4 Mobile/7B334b Safari/531.21.10'
     var BASE_URL = 'http://ororo.tv';
     var logo = plugin.path + plugin_info.icon;
     var loggedIn = false;
@@ -91,53 +92,74 @@ var html = require('showtime/html');
     });
     plugin.addURI(PREFIX + ":login:(.*):(.*)", function(page, query, token) {
         popup.notify('Start login procedure from Ororo.tv', 5);
-        p(query);
-        p(token);
-        p(loggedIn);
-        if (loggedIn) page.redirect(PREFIX + ':start');
+        p('loggedIn: ' + loggedIn)
+
+        if (loggedIn) page.redirect(PREFIX + ':start')
+            
         var reason = "Login required";
         var do_query = false;
+
+
         while (1) {
-            var credentials = plugin.getAuthCredentials("Ororo.tv", reason, do_query);
-            if (credentials.rejected) return; //rejected by user
+
+            var credentials = plugin.getAuthCredentials("Ororo.tv",
+                reason, do_query);
+p(credentials)
             if (!credentials) {
                 if (query && !do_query) {
                     do_query = true;
                     continue;
                 }
-                reason = "No credentials";
+                
             }
-            try {
-                v = http.request(service.geoURL + '/users/sign_in', {
-                    // noFollow: true,
-                    postdata: {
-                        utf8: '✓',
-                        authenticity_token: token,
-                        'user[email]': credentials.username,
-                        'user[password]': credentials.password,
-                        'user[remember_me]': 1
-                    },
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-                        'Host': 'ororo.tv',
-                        'Origin': 'http://ororo.tv',
-                        'Referer': service.baseURL + '/users/sign_in',
-                        'X-CSRF-Token': token,
-                        'User-Agent': USER_AGENT,
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
-                }).toString();
-            } catch (err) {
-                p('error');
-                p(err.message);
-                reason = err.message;
+
+            if (credentials.rejected) page.error("Rejected by user")
+               // return "Rejected by user";
+            try{
+            v = http.request(service.geoURL + '/users/sign_in', {
+                // noFollow: true,
+                postdata: {
+                    utf8: '✓',
+                    authenticity_token: token,
+                    'user[email]': credentials.username,
+                    'user[password]': credentials.password,
+                    'user[remember_me]': 1
+                },
+                headers: {
+                    'Host': 'ororo.tv',
+                    'Connection': 'keep-alive',
+                    //Content-Length: 257
+                    'Pragma': 'no-cache',
+                    'Cache-Control': 'no-cache',
+                    'Origin': 'http://ororo.tv',
+                    'X-CSRF-Token': token,
+                    'User-Agent': USER_AGENT,
+                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                    'Accept': '*/*',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Referer': service.geoURL + '/users/sign_in',
+                    'Accept-Encoding': 'gzip, deflate',
+                    'Accept-Language': 'en-US,en;q=0.8,zh;q=0.6,zh-CN;q=0.4,zh-TW;q=0.2'
+                    //Cookie: id=86fdb91c7fc0182eef6d72093840ac62; locale=en
+                }
+            })}
+            catch (err){
+
+                p(err)
+                reason = 'Error'
                 do_query = true;
                 continue;
             }
-            showtime.trace('Logged in to Ororo.tv as user: ' + credentials.username);
-            loggedIn = true;
-            page.redirect(PREFIX + ':start');
-        }
+            if (v) {
+            p('Logged in to Ororo.tv as user: ' + credentials.username);
+            p(loggedIn)
+            loggedIn = true
+            p(loggedIn)
+            break
+            }
+       }
+
+              page.redirect(PREFIX + ':start');
     });
     plugin.addURI(PREFIX + ":logout", function(page) {
         var request = http.request(service.geoURL + '/users/sign_out', {
@@ -147,6 +169,7 @@ var html = require('showtime/html');
                 'User-Agent': USER_AGENT
             }
         });
+        loggedIn = false
         popup.notify('Successfully logout from Ororo.tv', 2);
         page.loading = false;
         //page.redirect(PREFIX + ":start");
@@ -202,13 +225,14 @@ var html = require('showtime/html');
         page.contents = "items";
     });
     plugin.addURI(PREFIX + ":browse:(.*)", function(page, link) {
+        page.loading = true;
         page.type = "directory";
         page.contents = "items";
         if (service.arrayview) page.metadata.glwview = plugin.path + "views/array2.view";
         pageMenu(page);
         items = [];
         items_tmp = [];
-        var dom = html.parse(http.request(service.geoURL + link, {
+        var dom = html.parse(http.request(BASE_URL + link, {
             method: 'GET',
             headers: {
                 'User-Agent': USER_AGENT
@@ -284,7 +308,7 @@ var html = require('showtime/html');
     plugin.addURI(PREFIX + ":page:(.*)", function(page, link) {
         page.type = "directory";
         page.contents = "items";
-        var res = http.request(service.geoURL + link, {
+        var res = http.request(BASE_URL + link, {
             method: 'GET',
             headers: {
                 'User-Agent': USER_AGENT
@@ -384,8 +408,9 @@ var html = require('showtime/html');
             episode: 0,
             canonicalUrl: PREFIX + ":play:" + url,
             sources: [{
-                url: []
-            }],
+                    url: []
+                }
+            ],
             subtitles: []
         };
         videoparams = get_video_link(res, videoparams);
@@ -408,8 +433,9 @@ var html = require('showtime/html');
             var video_url = match(/<source src='\/(.*?)' type='video/, res, 1) ? BASE_URL + match(/<source src='\/(.*?)' type='video/, res, 1) : match(/<source src='(.*?)' type='video/, res,
                 1);
             videoparams.sources = [{
-                url: video_url.replace('.webm', service.Format)
-            }];
+                    url: video_url.replace('.webm', service.Format)
+                }
+            ];
             if (service.subs === true) {
                 var re = /subtitles'.*?label='([^']+)+.*?src='([^']+)/g;
                 var subtitles = re.exec(res);
@@ -518,61 +544,61 @@ var html = require('showtime/html');
     }
 
     function pageUpdateItemsPositions(its) {
-            for (var i in its) {
-                items[its[i].orig_index].moveBefore(i);
-            }
+        for (var i in its) {
+            items[its[i].orig_index].moveBefore(i);
         }
-        //function sort(items, field, reverse) {
+    }
+    //function sort(items, field, reverse) {
 
     function sort(items, field) {
-            if (items.length === 0) return null;
-            var its = [];
-            for (var i in items) {
-                items[i].orig_index = i;
-                its.push(items[i]);
-            }
-            its.sort(SortBy(field));
-            return its;
+        if (items.length === 0) return null;
+        var its = [];
+        for (var i in items) {
+            items[i].orig_index = i;
+            its.push(items[i]);
         }
-        //
-        //extra functions
-        //
-        //*** This code is copyright 2004 by Gavin Kistner, !@phrogz.net
-        //*** It is covered under the license viewable at http://phrogz.net/JS/_ReuseLicense.txt
-        //*** Reuse or modification is free provided you abide by the terms of that license.
-        //*** (Including the first two lines above in your source code mostly satisfies the conditions.)
-        // Returns a function which can be used to sort an Array by multiple criteria.
-        // Can be called in one of three ways:
-        //   var sortFunc = SortBy( 'name' , 'age' , 'sex' );
-        //   var sortFunc = SortBy( ['name','age','sex'] );
-        //   var sortFunc = SortBy( { name:1, age:1, sex:1 } );
-        //
-        // The first two methods are equivalent, and sort in ascending order.
-        // The last method allows you to specify sort direction:
-        //   1 (or true)  specifies ascending sort order.
-        //   0 (or false) specifies descending sort order.
-        //
-        // The sort function is constructed using 'dot notation' for the properties;
-        // this means you can also specify a method to call on the object by putting
-        // parentheses at the end of the name.
-        // e.g. var stupidDateStringSort = SortBy('toDateString()','toTimeString()');
+        its.sort(SortBy(field));
+        return its;
+    }
+    //
+    //extra functions
+    //
+    //*** This code is copyright 2004 by Gavin Kistner, !@phrogz.net
+    //*** It is covered under the license viewable at http://phrogz.net/JS/_ReuseLicense.txt
+    //*** Reuse or modification is free provided you abide by the terms of that license.
+    //*** (Including the first two lines above in your source code mostly satisfies the conditions.)
+    // Returns a function which can be used to sort an Array by multiple criteria.
+    // Can be called in one of three ways:
+    //   var sortFunc = SortBy( 'name' , 'age' , 'sex' );
+    //   var sortFunc = SortBy( ['name','age','sex'] );
+    //   var sortFunc = SortBy( { name:1, age:1, sex:1 } );
+    //
+    // The first two methods are equivalent, and sort in ascending order.
+    // The last method allows you to specify sort direction:
+    //   1 (or true)  specifies ascending sort order.
+    //   0 (or false) specifies descending sort order.
+    //
+    // The sort function is constructed using 'dot notation' for the properties;
+    // this means you can also specify a method to call on the object by putting
+    // parentheses at the end of the name.
+    // e.g. var stupidDateStringSort = SortBy('toDateString()','toTimeString()');
 
     function SortBy() {
-            var a = arguments,
-                len = a.length,
-                f = 'return ',
-                p = 1,
-                i;
-            if (len == 1 && (a[0].constructor == Object || a[0].constructor == Array) && ((o = a = a[0]).constructor == Object)) p = 0;
-            if (p && (o = {}))
-                for (i = 0, len = a.length; i < len; i++) o[a[i]] = 1;
-            for (k in o) {
-                var z = o[k] ? ['<', '>'] : ['>', '<'];
-                f += 'a.' + k + z[0] + 'b.' + k + '?-1:a.' + k + z[1] + 'b.' + k + '?1:';
-            }
-            return new Function('a', 'b', f + '0');
+        var a = arguments,
+            len = a.length,
+            f = 'return ',
+            p = 1,
+            i;
+        if (len == 1 && (a[0].constructor == Object || a[0].constructor == Array) && ((o = a = a[0]).constructor == Object)) p = 0;
+        if (p && (o = {}))
+            for (i = 0, len = a.length; i < len; i++) o[a[i]] = 1;
+        for (k in o) {
+            var z = o[k] ? ['<', '>'] : ['>', '<'];
+            f += 'a.' + k + z[0] + 'b.' + k + '?-1:a.' + k + z[1] + 'b.' + k + '?1:';
         }
-        // Add to RegExp prototype
+        return new Function('a', 'b', f + '0');
+    }
+    // Add to RegExp prototype
     RegExp.prototype.execAll = function(str) {
         var match = null;
         for (var matches = []; null !== (match = this.exec(str));) {

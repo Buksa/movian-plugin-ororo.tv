@@ -16,10 +16,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-//ver 0.7.2
+//ver 0.7.3
 var http = require('showtime/http');
 var html = require('showtime/html');
-(function(plugin) {
+
     var plugin_info = plugin.getDescriptor();
     var PREFIX = plugin_info.id;
     var USER_AGENT = //'Mozilla/5.0 (Windows NT 6.3; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.90 Safari/537.36 OPR/29.0.1795.47';
@@ -194,7 +194,7 @@ p(credentials)
         page.appendItem(PREFIX + ":browse:" + '/movies', 'directory', {
             title: 'movies'
         });
-        v = http.request(BASE_URL, {
+        v = http.request(service.geoURL, {
             method: 'GET',
             headers: {
                 'User-Agent': USER_AGENT
@@ -232,7 +232,10 @@ p(credentials)
         pageMenu(page);
         items = [];
         items_tmp = [];
-        var dom = html.parse(http.request(BASE_URL + link, {
+        p(link)
+        link == '/' ? link = service.geoURL : link = service.geoURL + link
+        p(link)
+        var dom = html.parse(http.request(link, {
             method: 'GET',
             headers: {
                 'User-Agent': USER_AGENT
@@ -240,7 +243,7 @@ p(credentials)
         }));
         var shows = dom.root.getElementByClassName('index show');
         for (i = 0; i < shows.length; i++) {
-            page.metadata.title = new showtime.RichText('Ororo.tv | ' + (link == '/' ? "TV Shows" : "Movies") + ' [' + i + ']');
+            page.metadata.title = new showtime.RichText('Ororo.tv | ' + (link == service.geoURL ? "TV Shows" : "Movies") + ' [' + i + ']');
             var show = shows[i];
             var title = show.getElementByClassName('name')[0].textContent;
             var href = show.getElementByClassName('name')[0].attributes.getNamedItem('href').value;
@@ -696,10 +699,3 @@ p(credentials)
         return dumped_text;
     }
 
-    function trace(msg) {
-        if (service.debug) {
-            t(msg);
-            p(msg);
-        }
-    }
-})(this);

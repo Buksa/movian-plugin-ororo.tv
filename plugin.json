@@ -1,10 +1,9 @@
 {
 	"type": "ecmascript",
-	"apiversion": 1,
 	"id": "ororo",
 	"file": "ororo.js",
 	"showtimeVersion": "4.9",
-	"version": "0.7.2",
+	"version": "0.7.3",
 	"author": "Buksa,lprot",
 	"title": "ororo.tv",
 	"icon": "logo.png",

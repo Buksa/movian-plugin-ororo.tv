@@ -16,14 +16,14 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-//ver 0.7.5
+//ver 0.7.6
 var http = require('showtime/http');
 var html = require('showtime/html');
 
 var plugin_info = plugin.getDescriptor();
+print(Plugin)
 var PREFIX = plugin_info.id;
-var USER_AGENT = //'Mozilla/5.0 (Windows NT 6.3; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.90 Safari/537.36 OPR/29.0.1795.47';
-'Mozilla/5.0 (Windows NT 6.3; WOW64; rv:40.0) Gecko/20100101 Firefox/40.0'
+var USER_AGENT = 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:40.0) Gecko/20100101 Firefox/40.0'
 var BASE_URL = 'http://ororo.tv';
 var logo = plugin.path + plugin_info.icon;
 var loggedIn = false;
@@ -90,83 +90,67 @@ plugin.addItemHook({
 });
 //set header and cookies for ororo.tv
 plugin.addHTTPAuth("http:\/\/.*ororo.tv.*", function(authreq) {
-    authreq.setHeader("User-Agent", "Mozilla/5.0 (Windows NT 6.3; WOW64; rv:40.0) Gecko/20100101 Firefox/40.0");
+    authreq.setHeader("User-Agent", "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:40.0) Gecko/20100101 Firefox/40.0");
     authreq.setCookie("video", "true");
 });
-plugin.addURI(PREFIX + ":sign_in", function(page) {
-    if (!service.tosaccepted)
-        if (popup.message(tos, true, true)) service.tosaccepted = 1;
-        else {
-            page.error("TOS not accepted. plugin disabled");
-            return;
-        }
-        v = http.request(service.geoURL + '/users/sign_in',{}).toString()
-        p(v)
-    var dom = html.parse(v);
-    p(MetaTag(dom, "csrf-token"))
-    
-    page.loading = false;
-    page.type = "directory";
-    page.contents = "items";
-    })
-    
+
 plugin.addURI(PREFIX + ":login:(.*):(.*)", function(page, showAuth, token) {
     popup.notify('Start login procedure from Ororo.tv', 5);
     p("showAuth:" + showAuth)
- 
+
     var showAuthCredentials = false;
     if (showAuth == 'true') showAuthCredentials = true;
     while (1) {
-      var credentials = plugin.getAuthCredentials("Ororo.tv", "Login required", showAuthCredentials);
-      if (credentials.rejected) return; //rejected by user
-      if (credentials) {
-	
-        try {
-              v = http.request(service.geoURL + '/users/sign_in', {
-                noFollow: true,
-                postdata: {
-                    utf8: '✓',
-                    authenticity_token: token,
-                    'user[email]': credentials.username,
-                    'user[password]': credentials.password,
-                    'user[remember_me]': 0,
-                    'user[remember_me]': 1
-                },
-                headers: {
+        var credentials = plugin.getAuthCredentials("Ororo.tv", "Login required", showAuthCredentials);
+        if (credentials.rejected) return; //rejected by user
+        if (credentials) {
 
-                    'Host': 'ororo.tv',
-                    'Connection': 'keep-alive',
-                    //Content-Length: 257
-                    'Origin': 'http://ororo.tv',
-                    'X-CSRF-Token': token,
-                    'User-Agent': USER_AGENT,
-                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-                    'Accept': '*/*',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Referer': service.geoURL + '/users/sign_in',
-                    'Accept-Encoding': 'gzip, deflate',
-                    'Accept-Language': 'en-US,en;q=0.8,zh;q=0.6,zh-CN;q=0.4,zh-TW;q=0.2'
-                }
-            }).toString();
-            	
-                } catch (error){
-                    p(error)
-                    showAuth = true
-                    showAuthCredentials = true;
+            try {
+                v = http.request(service.geoURL + '/users/sign_in', {
+                    noFollow: true,
+                    postdata: {
+                        utf8: '✓',
+                        authenticity_token: token,
+                        'user[email]': credentials.username,
+                        'user[password]': credentials.password,
+                        'user[remember_me]': 0,
+                        'user[remember_me]': 1
+                    },
+                    headers: {
+
+                        'Host': 'ororo.tv',
+                        'Connection': 'keep-alive',
+                        //Content-Length: 257
+                        'Origin': 'http://ororo.tv',
+                        'X-CSRF-Token': token,
+                        'User-Agent': USER_AGENT,
+                        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                        'Accept': '*/*',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Referer': service.geoURL + '/users/sign_in',
+                        'Accept-Encoding': 'gzip, deflate',
+                        'Accept-Language': 'en-US,en;q=0.8,zh;q=0.6,zh-CN;q=0.4,zh-TW;q=0.2'
+                    }
+                }).toString();
+
+            } catch (error) {
+                p(error)
+                showAuth = true
+                showAuthCredentials = true;
                 continue
-                }
+            }
 
-	showAuthCredentials = /"email":"([^"]+)"/g.test(v)
-        p(showAuthCredentials)
-	if (!showAuthCredentials) break;
-      };
-      showAuthCredentials = true;
+            showAuthCredentials = /"email":"([^"]+)"/g.test(v)
+            p(showAuthCredentials)
+            if (!showAuthCredentials) break;
+        };
+        showAuthCredentials = true;
     };
 
-    
+
     page.redirect(PREFIX + ':start');
 
-  });
+});
 plugin.addURI(PREFIX + ":logout", function(page) {
     var request = http.request(service.geoURL + '/users/sign_out', {
         noFollow: true,
@@ -190,6 +174,19 @@ plugin.addURI(PREFIX + ":start", function(page) {
             page.error("TOS not accepted. plugin disabled");
             return;
         }
+
+    p(http.request('http://ororo.tv/nl', {
+        debug: service.debug,
+        // noFollow: true,//,
+        // headers:{'Host': 'ororo.tv',
+        //'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:40.0) Gecko/20100101 Firefox/40.0',
+        //'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        //'Accept-Language': 'en-US,en;q=0.5',
+        //'Accept-Encoding': 'gzip, deflate',
+        //'Cookie': 'locale=en; nl=true;'
+        //'Connection': 'keep-alive'
+        //}
+    }).toString())
     if (service.arrayview) page.metadata.glwview = plugin.path + "views/array2.view";
     pageMenu(page);
     page.metadata.logo = logo;
@@ -200,7 +197,7 @@ plugin.addURI(PREFIX + ":start", function(page) {
     page.appendItem(PREFIX + ":browse:" + '/movies#free', 'directory', {
         title: 'movies'
     })
-    v = http.request(service.geoURL/*+'/users/sign_in'*/, {
+    v = http.request(service.geoURL /*+'/users/sign_in'*/ , {
         method: 'GET',
         //noFollow: true,
         headers: {
@@ -212,19 +209,19 @@ plugin.addURI(PREFIX + ":start", function(page) {
     //check for LOGIN state
     var reLogin = /"email":"([^"]+)"/g;
     var loginState = reLogin.exec(v);
- p('loginState'+loginState)
-    
+    p('loginState' + loginState)
+
     if (!loginState) {
         p('Login procedure started!~');
         if (MetaTag(dom, "csrf-token")) token = MetaTag(dom, "csrf-token");
         p("will redirect to (PREFIX + ':login:true:token')");
         page.redirect(PREFIX + ':login:false:' + token);
-return;
+        return;
     } else {
-       print('Logged in as:' + loginState[1]);
-    page.appendItem(PREFIX + ":logout", "directory", {
+        print('Logged in as:' + loginState[1]);
+        page.appendItem(PREFIX + ":logout", "directory", {
             title: new showtime.RichText("Log out form account " + loginState[1])
-    });
+        });
     }
     page.metadata.title = dom.root.getElementByTagName('title')[0].textContent;
     page.loading = false;
@@ -421,27 +418,27 @@ plugin.addURI(PREFIX + ":play:(.*)", function(page, url) {
 
 
 plugin.addSearcher(PREFIX + " TV Shows", logo, function(page, query) {
-    if (service.search){
-    p(service.search)
-    page.entries = 0;
-    getShows({
-        query: query
-    }, function(error, results) {
+    if (service.search) {
+        p(service.search)
+        page.entries = 0;
+        getShows({
+            query: query
+        }, function(error, results) {
 
-        results.forEach(function(i) {
-            var item = page.appendItem(PREFIX + ":page:" + i.href, "video", {
-                title: new showtime.RichText(i.title.trim()),
-                icon: BASE_URL + i.icon,
-                description: i.desc + '\n' + i.lastupdated,
-                rating: i.rating * 10,
-                genre: i.genre,
-                year: parseInt(i.year, 10)
-            });
-page.entries++
+            results.forEach(function(i) {
+                var item = page.appendItem(PREFIX + ":page:" + i.href, "video", {
+                    title: new showtime.RichText(i.title.trim()),
+                    icon: BASE_URL + i.icon,
+                    description: i.desc + '\n' + i.lastupdated,
+                    rating: i.rating * 10,
+                    genre: i.genre,
+                    year: parseInt(i.year, 10)
+                });
+                page.entries++
+            })
+
+
         })
-
-
-    })
 
     }
 });
@@ -695,7 +692,7 @@ function t(message) {
 
 getShows = function(options, callback) {
     start = Date.now()
-p(start)
+    p(start)
     http.request(service.geoURL, {
         method: 'GET',
         headers: {
@@ -733,7 +730,7 @@ p(start)
                     list.push(show)
                 }
             })
-p(Date.now()-start)
+            p(Date.now() - start)
             if (callback) callback(null, list);
         } else {
             console.log("Error getting shows", error, response);

@@ -16,9 +16,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-//ver 0.7.6
+//ver 0.7.7
 var http = require('showtime/http');
 var html = require('showtime/html');
+var string = require('native/string');
 
 var plugin_info = plugin.getDescriptor();
 print(Plugin)
@@ -66,19 +67,13 @@ settings.createBool("thetvdb", "Show more information using thetvdb", false, fun
 settings.createBool("subs", "Show Subtitle from Ororo.tv ", true, function(v) {
     service.subs = v;
 });
-settings.createBool("search", "Search", false, function(v) {
+settings.createBool("search", "Search", true, function(v) {
     service.search = v;
 });
 settings.createBool("debug", "Debug logging", false, function(v) {
     service.debug = v;
 });
-var Format = [
-    ['.mp4', 'MP4', true],
-    ['.webm', 'Webm/VP8']
-];
-settings.createMultiOpt("Format", "Format", Format, function(v) {
-    service.Format = v;
-});
+
 plugin.addItemHook({
     title: "Search in Another Apps",
     itemtype: "video",
@@ -90,12 +85,12 @@ plugin.addItemHook({
 });
 //set header and cookies for ororo.tv
 plugin.addHTTPAuth("http:\/\/.*ororo.tv.*", function(authreq) {
-    authreq.setHeader("User-Agent", "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:40.0) Gecko/20100101 Firefox/40.0");
-    authreq.setCookie("video", "true");
+    authreq.setHeader('User-Agent', 'Mozilla/5.0 (Windows NT 6.3; WOW64; rv:42.0) Gecko/20100101 Firefox/42.0');
+    //  authreq.setCookie("video", "true");
 });
 
 plugin.addURI(PREFIX + ":login:(.*):(.*)", function(page, showAuth, token) {
-    popup.notify('Start login procedure from Ororo.tv', 5);
+    popup.notify('Start login procedure for Ororo.tv', 5);
     p("showAuth:" + showAuth)
 
     var showAuthCredentials = false;
@@ -187,7 +182,7 @@ plugin.addURI(PREFIX + ":start", function(page) {
         //'Connection': 'keep-alive'
         //}
     }).toString())
-    if (service.arrayview) page.metadata.glwview = plugin.path + "views/array2.view";
+    if (service.arrayview) page.model.contents = 'grid'; //page.metadata.glwview = plugin.path + "views/array2.view";
     pageMenu(page);
     page.metadata.logo = logo;
     page.metadata.title = PREFIX;
@@ -204,7 +199,6 @@ plugin.addURI(PREFIX + ":start", function(page) {
             'User-Agent': USER_AGENT
         }
     }).toString();
-    p(v)
     var dom = html.parse(v);
     //check for LOGIN state
     var reLogin = /"email":"([^"]+)"/g;
@@ -233,7 +227,7 @@ plugin.addURI(PREFIX + ":browse:(.*)", function(page, link) {
     page.loading = true;
     page.type = "directory";
     page.contents = "items";
-    if (service.arrayview) page.metadata.glwview = plugin.path + "views/array2.view";
+    if (service.arrayview) page.model.contents = 'grid'; //page.metadata.glwview = plugin.path + "views/array2.view";
     pageMenu(page);
     items = [];
     items_tmp = [];
@@ -389,31 +383,94 @@ plugin.addURI(PREFIX + ":page:(.*)", function(page, link) {
 });
 // Play links
 plugin.addURI(PREFIX + ":play:(.*)", function(page, url) {
+    var canonicalUrl = PREFIX + ":play:" + url;
     page.loading = true;
     page.metadata.logo = logo;
-    var res = http.request(BASE_URL + url, {
-        method: 'GET',
-        debug: service.debug,
-        headers: {
-            'User-Agent': USER_AGENT
-        }
-    });
+
     var videoparams = {
+        canonicalUrl: canonicalUrl,
         no_fs_scan: true,
         title: '',
         season: 0,
         episode: 0,
-        canonicalUrl: PREFIX + ":play:" + url,
         sources: [{
                 url: []
             }
         ],
         subtitles: []
     };
-    videoparams = get_video_link(res, videoparams);
-    page.source = "videoparams:" + JSON.stringify(videoparams);
+    var res = http.request(BASE_URL + url /*+'?_=' +Date.now()*/ , {
+        method: 'GET',
+        debug: service.debug,
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 6.3; WOW64; rv:42.0) Gecko/20100101 Firefox/42.0',
+            'X-Requested-With': 'XMLHttpRequest',
+        }
+    });
+    p(res)
+    var dom = html.parse(res);
+    var video = dom.root.getElementByTagName('video');
+    res = res.toString();
+    p(video[0].attributes);
+    videoparams.title = video[0].attributes.getNamedItem('data-show').value;
+    icon = BASE_URL + video[0].attributes.getNamedItem('poster').value
+    title_s_e = video[0].attributes.getNamedItem('data-title').value
+    if (video[0].attributes.getNamedItem('data-season')) {
+        videoparams.season = video[0].attributes.getNamedItem('data-season') ? +video[0].attributes.getNamedItem('data-season').value : 0;
+        videoparams.episode = video[0].attributes.getNamedItem('data-number') ? +video[0].attributes.getNamedItem('data-number').value : 0;
+    }
+
+    if (service.subs === true) {
+        var re = /subtitles'.*?label='([^']+)+.*?src='([^']+)/g;
+        var subtitles = re.exec(res);
+        while (((subtitles = re.exec(res)) !== null)) {
+            p("Found subtitles:" + subtitles[1] + subtitles[2]);
+            videoparams.subtitles.push({
+                url: BASE_URL + subtitles[2],
+                language: subtitles[1],
+                title: subtitles[2].match(/file\/\d+\/([^']+)/)[1]
+            });
+        }
+    }
+    p(videoparams)
+    regExp = /(http:.*?(webm)[^']+)/g
+    while (((match = regExp.exec(res)) !== null)) {
+        videoparams.sources = [{
+                url: string.entityDecode(match[1])
+            }
+        ]
+
+        video = "videoparams:" + JSON.stringify(videoparams)
+        item = page.appendItem(video, "video", {
+            title: '['+match[2]+']-' + title_s_e,
+            icon : icon
+        });
+
+        p(videoparams)
+    }
+    videoparams.sources = [{}]
+    regExp = /(http:.*?(mp4)[^']+)/g
+    while (((match = regExp.exec(res)) !== null)) {
+        videoparams.sources = [{
+                url: string.entityDecode(match[1])
+            }
+        ]
+
+        video = "videoparams:" + JSON.stringify(videoparams)
+        page.appendItem(video, "video", {
+            title: '['+match[2]+']-' + title_s_e,
+            icon: icon
+        });
+        p(videoparams)
+    }
+
+    page.appendItem("search:" + videoparams.title, "directory", {
+        title: 'Try Search for: ' + videoparams.title
+    });
+    page.type = "directory";
+    page.contents = "contents";
+    page.metadata.logo = Plugin.path + "logo.png";
     page.loading = false;
-    page.type = "video";
 });
 
 
@@ -444,41 +501,7 @@ plugin.addSearcher(PREFIX + " TV Shows", logo, function(page, query) {
 });
 
 
-function get_video_link(res, videoparams) {
-    var dom = html.parse(res);
-    var video = dom.root.getElementByTagName('video');
-    res = res.toString();
-    p(video[0].attributes);
-    try {
-        videoparams.title = video[0].attributes.getNamedItem('data-show').value;
-        if (video[0].attributes.getNamedItem('data-season')) {
-            videoparams.season = video[0].attributes.getNamedItem('data-season') ? +video[0].attributes.getNamedItem('data-season').value : 0;
-            videoparams.episode = video[0].attributes.getNamedItem('data-number') ? +video[0].attributes.getNamedItem('data-number').value : 0;
-        }
-        var video_url = match(/<source src='\/(.*?)' type='video/, res, 1) ? BASE_URL + match(/<source src='\/(.*?)' type='video/, res, 1) : match(/<source src='(.*?)' type='video/, res,
-            1);
-        videoparams.sources = [{
-                url: video_url.replace('.webm', service.Format)
-            }
-        ];
-        if (service.subs === true) {
-            var re = /subtitles'.*?label='([^']+)+.*?src='([^']+)/g;
-            var subtitles = re.exec(res);
-            while (subtitles) {
-                p("Found subtitles:" + subtitles[1] + subtitles[2]);
-                videoparams.subtitles.push({
-                    url: BASE_URL + subtitles[2],
-                    language: subtitles[1],
-                    title: subtitles[2].match(/file\/\d+\/([^']+)/)[1]
-                });
-                subtitles = re.exec(res);
-            }
-        }
-    } catch (err) {
-        e(err);
-    }
-    return videoparams;
-}
+
 
 function pageMenu(page) {
     if (service.arrayview) {
@@ -743,7 +766,7 @@ getShows = function(options, callback) {
 };
 
 function p(message) {
-    if (service.debug == '1') {
+    if (service.debug === '1') {
         print(message);
         if (typeof(message) === 'object') print(dump(message));
     }

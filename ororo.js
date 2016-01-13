@@ -16,7 +16,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-//ver 0.7.7
+//ver 0.7.8
 var http = require('showtime/http');
 var html = require('showtime/html');
 var string = require('native/string');
@@ -182,7 +182,10 @@ plugin.addURI(PREFIX + ":start", function(page) {
         //'Connection': 'keep-alive'
         //}
     }).toString())
-    if (service.arrayview) page.model.contents = 'grid'; //page.metadata.glwview = plugin.path + "views/array2.view";
+    if (showtime.currentVersionInt < 49900000) {
+        page.metadata.glwview = plugin.path + 'page.metadata.glwview';
+        page.contents = 'items';
+    } else page.model.contents = 'grid'; //page.metadata.glwview = plugin.path + "views/array2.view";
     pageMenu(page);
     page.metadata.logo = logo;
     page.metadata.title = PREFIX;
@@ -227,7 +230,10 @@ plugin.addURI(PREFIX + ":browse:(.*)", function(page, link) {
     page.loading = true;
     page.type = "directory";
     page.contents = "items";
-    if (service.arrayview) page.model.contents = 'grid'; //page.metadata.glwview = plugin.path + "views/array2.view";
+    if (showtime.currentVersionInt < 49900000) {
+        page.metadata.glwview = plugin.path + 'page.metadata.glwview';
+        page.contents = 'items';
+    } else page.model.contents = 'grid'; //page.metadata.glwview = plugin.path + "views/array2.view";
     pageMenu(page);
     items = [];
     items_tmp = [];
@@ -305,14 +311,14 @@ plugin.addURI(PREFIX + ":page:(.*)", function(page, link) {
         }
     });
     var dom = html.parse(res);
-    var poster_info = dom.root.getElementById('poster_info');
-    var ptitle = poster_info.getElementById('poster').attributes.getNamedItem('alt').value;
-    var icon = poster_info.getElementById('poster').attributes.getNamedItem('src').value;
-    var year = parseInt(poster_info.getElementById('year').textContent.trim(), 10);
-    p(poster_info.getElementById('rating').textContent ? poster_info.getElementById('rating').textContent.trim() : 0)
-    var rating = +(poster_info.getElementById('rating').textContent ? poster_info.getElementById('rating').textContent.trim() : 0) * 10;
-    var duration = parseInt(poster_info.getElementById('length').textContent.trim(), 10);
-    var genre = poster_info.getElementById('genres').textContent.trim();
+    try {
+    var ptitle = dom.root.getElementById('poster').attributes.getNamedItem('alt').value;
+    var icon = dom.root.getElementById('poster').attributes.getNamedItem('src').value;
+    var year = dom.root.getElementById('year') ? parseInt(dom.root.getElementById('year').textContent.trim(), 10) : 0;
+    var rating = dom.root.getElementById('rating') ? (parseInt(dom.root.getElementById('rating').textContent, 10) * 10) : 0;
+    var duration = dom.root.getElementById('length') ? parseInt(dom.root.getElementById('length').textContent.trim(), 10) : 0;
+
+    var genre = dom.root.getElementById('genres') ? dom.root.getElementById('genres').textContent.trim() : '';
     page.metadata.logo = BASE_URL + icon;
     page.metadata.title = ptitle + " (" + year + ")";
     if (service.arrayview) {
@@ -336,7 +342,7 @@ plugin.addURI(PREFIX + ":page:(.*)", function(page, link) {
         });
         //code
     }
-    try {
+//    try {
         var seasons = dom.root.getElementByClassName('tab-content episodes-tab')[0];
         if (seasons) {
             for (s = 1, i = 0; i < seasons.children.length; i++, s++) {
@@ -376,7 +382,7 @@ plugin.addURI(PREFIX + ":page:(.*)", function(page, link) {
             }
         }
     } catch (ex) {
-        page.error("Failed to process page");
+       // page.error("Failed to process page");
         e(ex);
     }
     page.loading = false;
@@ -442,8 +448,8 @@ plugin.addURI(PREFIX + ":play:(.*)", function(page, url) {
 
         video = "videoparams:" + JSON.stringify(videoparams)
         item = page.appendItem(video, "video", {
-            title: '['+match[2]+']-' + title_s_e,
-            icon : icon
+            title: '[' + match[2] + ']-' + title_s_e,
+            icon: icon
         });
 
         p(videoparams)
@@ -458,7 +464,7 @@ plugin.addURI(PREFIX + ":play:(.*)", function(page, url) {
 
         video = "videoparams:" + JSON.stringify(videoparams)
         page.appendItem(video, "video", {
-            title: '['+match[2]+']-' + title_s_e,
+            title: '[' + match[2] + ']-' + title_s_e,
             icon: icon
         });
         p(videoparams)
@@ -704,14 +710,7 @@ function trim(s) {
     return s;
 }
 
-function e(ex) {
-    t(ex);
-    t("Line #" + ex.lineNumber);
-}
 
-function t(message) {
-    if (service.debug) showtime.trace(message, plugin.getDescriptor().id);
-}
 
 getShows = function(options, callback) {
     start = Date.now()
@@ -766,30 +765,37 @@ getShows = function(options, callback) {
 };
 
 function p(message) {
-    if (service.debug === '1') {
-        print(message);
-        if (typeof(message) === 'object') print(dump(message));
-    }
+  if (service.debug == "1") {
+    print(message);
+  }
+}
+
+function e(ex) {
+  console.log(ex);
+  console.log("Line #" + ex.lineNumber);
 }
 
 function dump(arr, level) {
-    var dumped_text = "";
-    if (!level) level = 0;
-    //The padding given at the beginning of the line.
-    var level_padding = "";
-    for (var j = 0; j < level + 1; j++) level_padding += "    ";
-    if (typeof(arr) == 'object') { //Array/Hashes/Objects
-        for (var item in arr) {
-            var value = arr[item];
-            if (typeof(value) == 'object') { //If it is an array,
-                dumped_text += level_padding + "'" + item + "' ...\n";
-                dumped_text += dump(value, level + 1);
-            } else {
-                dumped_text += level_padding + "'" + item + "' => \"" + value + "\"\n";
-            }
-        }
-    } else { //Stings/Chars/Numbers etc.
-        dumped_text = arr;
+  var dumped_text = "";
+  if (!level) {
+    level = 0;
+  }
+  var level_padding = "";
+  for (var j = 0; j < level + 1; j++) {
+    level_padding += "    ";
+  }
+  if (typeof arr == "object") {
+    for (var item in arr) {
+      var value = arr[item];
+      if (typeof value == "object") {
+        dumped_text += level_padding + "'" + item + "' ...\n";
+        dumped_text += dump(value, level + 1);
+      } else {
+        dumped_text += level_padding + "'" + item + "' => \"" + value + '"\n';
+      }
     }
-    return dumped_text;
+  } else {
+    dumped_text = "===>" + arr + "<===(" + typeof arr + ")";
+  }
+  return dumped_text;
 }

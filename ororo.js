@@ -382,13 +382,13 @@ plugin.addURI(PREFIX + ":page:(.*)", function(page, link) {
                             genre: genre,
                             year: year
                         });
-                        if (service.thetvdb) {
-                            item.bindVideoMetadata({
-                                title: trim(ptitle),
-                                season: +s,
-                                episode: +e
-                            });
-                        }
+                        //if (service.thetvdb) {
+                        //    item.bindVideoMetadata({
+                        //        title: trim(ptitle),
+                        //        season: +s,
+                        //        episode: +e
+                        //    });
+                        //}
                         p(title);
                     }
                     e++;

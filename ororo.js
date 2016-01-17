@@ -16,7 +16,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-//ver 0.7.8
+//ver 0.7.9
 var http = require('showtime/http');
 var html = require('showtime/html');
 var string = require('native/string');
@@ -73,6 +73,18 @@ settings.createBool("search", "Search", true, function(v) {
 settings.createBool("debug", "Debug logging", false, function(v) {
     service.debug = v;
 });
+
+
+  
+//    require('showtime/itemhook').create({
+//    title: "Search in Another Apps",
+//    itemtype: "video",
+//    handler: function(obj, nav) {
+//        var title = obj.metadata.title.toString();
+//        title = title.replace(/<.+?>/g, "").replace(/\[.+?\]/g, "");
+//        nav.openURL("search:" + title);
+//    }
+//});
 
 plugin.addItemHook({
     title: "Search in Another Apps",
@@ -173,17 +185,17 @@ plugin.addURI(PREFIX + ":start", function(page) {
     p(http.request('http://ororo.tv/nl', {
         debug: service.debug,
         // noFollow: true,//,
-        // headers:{'Host': 'ororo.tv',
+         headers:{//'Host': 'ororo.tv',
         //'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:40.0) Gecko/20100101 Firefox/40.0',
         //'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         //'Accept-Language': 'en-US,en;q=0.5',
-        //'Accept-Encoding': 'gzip, deflate',
+        'Accept-Encoding': 'gzip, deflate'
         //'Cookie': 'locale=en; nl=true;'
         //'Connection': 'keep-alive'
-        //}
+        }
     }).toString())
     if (showtime.currentVersionInt < 49900000) {
-        page.metadata.glwview = plugin.path + 'page.metadata.glwview';
+        page.metadata.glwview = plugin.path + "views/array2.view"
         page.contents = 'items';
     } else page.model.contents = 'grid'; //page.metadata.glwview = plugin.path + "views/array2.view";
     pageMenu(page);
@@ -231,7 +243,7 @@ plugin.addURI(PREFIX + ":browse:(.*)", function(page, link) {
     page.type = "directory";
     page.contents = "items";
     if (showtime.currentVersionInt < 49900000) {
-        page.metadata.glwview = plugin.path + 'page.metadata.glwview';
+        page.metadata.glwview = plugin.path + "views/array2.view"
         page.contents = 'items';
     } else page.model.contents = 'grid'; //page.metadata.glwview = plugin.path + "views/array2.view";
     pageMenu(page);
@@ -243,7 +255,8 @@ plugin.addURI(PREFIX + ":browse:(.*)", function(page, link) {
     var dom = html.parse(http.request(link, {
         method: 'GET',
         headers: {
-            'User-Agent': USER_AGENT
+            'User-Agent': USER_AGENT,
+            'Accept-Encoding': 'gzip, deflate'
         }
     }));
 
@@ -307,7 +320,8 @@ plugin.addURI(PREFIX + ":page:(.*)", function(page, link) {
     var res = http.request(BASE_URL + link, {
         method: 'GET',
         headers: {
-            'User-Agent': USER_AGENT
+            'User-Agent': USER_AGENT,
+            'Accept-Encoding': 'gzip, deflate'
         }
     });
     var dom = html.parse(res);
@@ -411,6 +425,7 @@ plugin.addURI(PREFIX + ":play:(.*)", function(page, url) {
         headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 6.3; WOW64; rv:42.0) Gecko/20100101 Firefox/42.0',
             'X-Requested-With': 'XMLHttpRequest',
+            'Accept-Encoding': 'gzip, deflate'
         }
     });
     p(res)
@@ -718,7 +733,8 @@ getShows = function(options, callback) {
     http.request(service.geoURL, {
         method: 'GET',
         headers: {
-            'User-Agent': USER_AGENT
+            'User-Agent': USER_AGENT,
+            'Accept-Encoding': 'gzip, deflate'
         }
     }, function(error, response) {
         if (!error && response.headers.Status === '200 OK') {

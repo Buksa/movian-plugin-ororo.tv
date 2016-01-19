@@ -16,7 +16,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-//ver 0.7.9
+//ver 0.7.10
 var http = require('showtime/http');
 var html = require('showtime/html');
 var string = require('native/string');
@@ -28,6 +28,7 @@ var USER_AGENT = 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:40.0) Gecko/2010010
 var BASE_URL = 'http://ororo.tv';
 var logo = plugin.path + plugin_info.icon;
 var loggedIn = false;
+var icon
 var tos = 'The developer has no affiliation with the sites what so ever.\n';
 tos += 'Nor does he receive money or any other kind of benefits for them.\n\n';
 tos += 'The software is intended solely for educational and testing purposes,\n';
@@ -98,6 +99,7 @@ plugin.addItemHook({
 //set header and cookies for ororo.tv
 plugin.addHTTPAuth("http:\/\/.*ororo.tv.*", function(authreq) {
     authreq.setHeader('User-Agent', 'Mozilla/5.0 (Windows NT 6.3; WOW64; rv:42.0) Gecko/20100101 Firefox/42.0');
+    authreq.setHeader('Accept-Encoding', 'gzip, deflate');
     //  authreq.setCookie("video", "true");
 });
 
@@ -327,13 +329,14 @@ plugin.addURI(PREFIX + ":page:(.*)", function(page, link) {
     var dom = html.parse(res);
     try {
     var ptitle = dom.root.getElementById('poster').attributes.getNamedItem('alt').value;
-    var icon = dom.root.getElementById('poster').attributes.getNamedItem('src').value;
+    //var icon = dom.root.getElementById('poster').attributes.getNamedItem('src').value;
+    icon = BASE_URL + dom.root.getElementById('poster').attributes.getNamedItem('src').value;
     var year = dom.root.getElementById('year') ? parseInt(dom.root.getElementById('year').textContent.trim(), 10) : 0;
     var rating = dom.root.getElementById('rating') ? (parseInt(dom.root.getElementById('rating').textContent, 10) * 10) : 0;
     var duration = dom.root.getElementById('length') ? parseInt(dom.root.getElementById('length').textContent.trim(), 10) : 0;
-
+    page.metadata.logo = icon
+    
     var genre = dom.root.getElementById('genres') ? dom.root.getElementById('genres').textContent.trim() : '';
-    page.metadata.logo = BASE_URL + icon;
     page.metadata.title = ptitle + " (" + year + ")";
     if (service.arrayview) {
         page.metadata.background = bg(ptitle);
@@ -348,7 +351,7 @@ plugin.addURI(PREFIX + ":page:(.*)", function(page, link) {
         item = page.appendItem(PREFIX + ":play:" + href, "video", {
             title: new showtime.RichText(ptitle),
             description: new showtime.RichText(plot),
-            icon: BASE_URL + icon,
+            icon: icon,
             rating: rating,
             duration: duration,
             genre: genre,
@@ -376,7 +379,7 @@ plugin.addURI(PREFIX + ":page:(.*)", function(page, link) {
                         item = page.appendItem(PREFIX + ":play:" + href, "video", {
                             title: new showtime.RichText(title),
                             description: new showtime.RichText(plot),
-                            icon: BASE_URL + icon,
+                            icon: icon,
                             rating: rating,
                             duration: duration,
                             genre: genre,
@@ -405,7 +408,7 @@ plugin.addURI(PREFIX + ":page:(.*)", function(page, link) {
 plugin.addURI(PREFIX + ":play:(.*)", function(page, url) {
     var canonicalUrl = PREFIX + ":play:" + url;
     page.loading = true;
-    page.metadata.logo = logo;
+    p(icon)
 
     var videoparams = {
         canonicalUrl: canonicalUrl,
@@ -428,13 +431,11 @@ plugin.addURI(PREFIX + ":play:(.*)", function(page, url) {
             'Accept-Encoding': 'gzip, deflate'
         }
     });
-    p(res)
     var dom = html.parse(res);
     var video = dom.root.getElementByTagName('video');
     res = res.toString();
-    p(video[0].attributes);
     videoparams.title = video[0].attributes.getNamedItem('data-show').value;
-    icon = BASE_URL + video[0].attributes.getNamedItem('poster').value
+  //  icon = BASE_URL + video[0].attributes.getNamedItem('poster').value
     title_s_e = video[0].attributes.getNamedItem('data-title').value
     if (video[0].attributes.getNamedItem('data-season')) {
         videoparams.season = video[0].attributes.getNamedItem('data-season') ? +video[0].attributes.getNamedItem('data-season').value : 0;

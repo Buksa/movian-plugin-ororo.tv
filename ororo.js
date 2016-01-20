@@ -16,7 +16,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-//ver 0.7.10
+//ver 0.7.11
 var http = require('showtime/http');
 var html = require('showtime/html');
 var string = require('native/string');
@@ -76,7 +76,7 @@ settings.createBool("debug", "Debug logging", false, function(v) {
 });
 
 
-  
+
 //    require('showtime/itemhook').create({
 //    title: "Search in Another Apps",
 //    itemtype: "video",
@@ -187,13 +187,13 @@ plugin.addURI(PREFIX + ":start", function(page) {
     p(http.request('http://ororo.tv/nl', {
         debug: service.debug,
         // noFollow: true,//,
-         headers:{//'Host': 'ororo.tv',
-        //'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:40.0) Gecko/20100101 Firefox/40.0',
-        //'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        //'Accept-Language': 'en-US,en;q=0.5',
-        'Accept-Encoding': 'gzip, deflate'
-        //'Cookie': 'locale=en; nl=true;'
-        //'Connection': 'keep-alive'
+        headers: { //'Host': 'ororo.tv',
+            //'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:40.0) Gecko/20100101 Firefox/40.0',
+            //'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            //'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate'
+            //'Cookie': 'locale=en; nl=true;'
+            //'Connection': 'keep-alive'
         }
     }).toString())
     if (showtime.currentVersionInt < 49900000) {
@@ -328,38 +328,38 @@ plugin.addURI(PREFIX + ":page:(.*)", function(page, link) {
     });
     var dom = html.parse(res);
     try {
-    var ptitle = dom.root.getElementById('poster').attributes.getNamedItem('alt').value;
-    //var icon = dom.root.getElementById('poster').attributes.getNamedItem('src').value;
-    icon = BASE_URL + dom.root.getElementById('poster').attributes.getNamedItem('src').value;
-    var year = dom.root.getElementById('year') ? parseInt(dom.root.getElementById('year').textContent.trim(), 10) : 0;
-    var rating = dom.root.getElementById('rating') ? (parseInt(dom.root.getElementById('rating').textContent, 10) * 10) : 0;
-    var duration = dom.root.getElementById('length') ? parseInt(dom.root.getElementById('length').textContent.trim(), 10) : 0;
-    page.metadata.logo = icon
-    
-    var genre = dom.root.getElementById('genres') ? dom.root.getElementById('genres').textContent.trim() : '';
-    page.metadata.title = ptitle + " (" + year + ")";
-    if (service.arrayview) {
-        page.metadata.background = bg(ptitle);
-        page.metadata.backgroundAlpha = 0.5;
-    }
-    var ptype = dom.root.getElementByClassName('translation-setup');
-    if (ptype[0].attributes.getNamedItem('id').value == 'movie') {
-        var episode = dom.root.getElementByClassName('episode')[0];
-        p(dom.root.getElementById('description').getElementByTagName('p')[0].textContent);
-        var href = episode.attributes.getNamedItem('data-href').value;
-        var plot = dom.root.getElementById('description').getElementByTagName('p')[0].textContent;
-        item = page.appendItem(PREFIX + ":play:" + href, "video", {
-            title: new showtime.RichText(ptitle),
-            description: new showtime.RichText(plot),
-            icon: icon,
-            rating: rating,
-            duration: duration,
-            genre: genre,
-            year: year
-        });
-        //code
-    }
-//    try {
+        var ptitle = dom.root.getElementById('poster').attributes.getNamedItem('alt').value;
+        //var icon = dom.root.getElementById('poster').attributes.getNamedItem('src').value;
+        icon = BASE_URL + dom.root.getElementById('poster').attributes.getNamedItem('src').value;
+        var year = dom.root.getElementById('year') ? parseInt(dom.root.getElementById('year').textContent.trim(), 10) : 0;
+        var rating = dom.root.getElementById('rating') ? (parseInt(dom.root.getElementById('rating').textContent, 10) * 10) : 0;
+        var duration = dom.root.getElementById('length') ? parseInt(dom.root.getElementById('length').textContent.trim(), 10) : 0;
+        page.metadata.logo = icon
+
+        var genre = dom.root.getElementById('genres') ? dom.root.getElementById('genres').textContent.trim() : '';
+        page.metadata.title = ptitle + " (" + year + ")";
+        if (service.arrayview) {
+            page.metadata.background = bg(ptitle);
+            page.metadata.backgroundAlpha = 0.5;
+        }
+        var ptype = dom.root.getElementByClassName('translation-setup');
+        if (ptype[0].attributes.getNamedItem('id').value == 'movie') {
+            var episode = dom.root.getElementByClassName('episode')[0];
+            p(dom.root.getElementById('description').getElementByTagName('p')[0].textContent);
+            var href = episode.attributes.getNamedItem('data-href').value;
+            var plot = dom.root.getElementById('description').getElementByTagName('p')[0].textContent;
+            item = page.appendItem(PREFIX + ":play:" + href, "video", {
+                title: new showtime.RichText(ptitle),
+                description: new showtime.RichText(plot),
+                icon: icon,
+                rating: rating,
+                duration: duration,
+                genre: genre,
+                year: year
+            });
+            //code
+        }
+        //    try {
         var seasons = dom.root.getElementByClassName('tab-content episodes-tab')[0];
         if (seasons) {
             for (s = 1, i = 0; i < seasons.children.length; i++, s++) {
@@ -399,7 +399,7 @@ plugin.addURI(PREFIX + ":page:(.*)", function(page, link) {
             }
         }
     } catch (ex) {
-       // page.error("Failed to process page");
+        // page.error("Failed to process page");
         e(ex);
     }
     page.loading = false;
@@ -435,7 +435,7 @@ plugin.addURI(PREFIX + ":play:(.*)", function(page, url) {
     var video = dom.root.getElementByTagName('video');
     res = res.toString();
     videoparams.title = video[0].attributes.getNamedItem('data-show').value;
-  //  icon = BASE_URL + video[0].attributes.getNamedItem('poster').value
+    //  icon = BASE_URL + video[0].attributes.getNamedItem('poster').value
     title_s_e = video[0].attributes.getNamedItem('data-title').value
     if (video[0].attributes.getNamedItem('data-season')) {
         videoparams.season = video[0].attributes.getNamedItem('data-season') ? +video[0].attributes.getNamedItem('data-season').value : 0;
@@ -443,18 +443,28 @@ plugin.addURI(PREFIX + ":play:(.*)", function(page, url) {
     }
 
     if (service.subs === true) {
-        var re = /subtitles'.*?label='([^']+)+.*?src='([^']+)/g;
-        var subtitles = re.exec(res);
-        while (((subtitles = re.exec(res)) !== null)) {
-            p("Found subtitles:" + subtitles[1] + subtitles[2]);
+        subs = dom.root.getElementByTagName('track');
+        for (var i = 0; i < subs.length; i++) {
+            element = subs[i];
+            p("Found subtitles:" + element.attributes.getNamedItem('src').value);
             videoparams.subtitles.push({
-                url: BASE_URL + subtitles[2],
-                language: subtitles[1],
-                title: subtitles[2].match(/file\/\d+\/([^']+)/)[1]
+                url: BASE_URL + element.attributes.getNamedItem('src').value,
+                language: element.attributes.getNamedItem('srclang').value,
+                title: element.attributes.getNamedItem('src').value.match(/file\/\d+\/([^']+)/)[1]
             });
         }
+        //var re = /subtitles'.*?label='([^']+)+.*?src='([^']+)/g;
+        //var subtitles = re.exec(res);
+        //while (((subtitles = re.exec(res)) !== null)) {
+        //    p("Found subtitles:" + subtitles[1] + subtitles[2]);
+        //    videoparams.subtitles.push({
+        //        url: BASE_URL + subtitles[2],
+        //        language: subtitles[1],
+        //        title: subtitles[2].match(/file\/\d+\/([^']+)/)[1]
+        //    });
+        //}
     }
-    p(videoparams)
+    p(dump(videoparams))
     regExp = /(http:.*?(webm)[^']+)/g
     while (((match = regExp.exec(res)) !== null)) {
         videoparams.sources = [{
@@ -468,7 +478,7 @@ plugin.addURI(PREFIX + ":play:(.*)", function(page, url) {
             icon: icon
         });
 
-        p(videoparams)
+        p(dump(videoparams))
     }
     videoparams.sources = [{}]
     regExp = /(http:.*?(mp4)[^']+)/g
@@ -483,7 +493,7 @@ plugin.addURI(PREFIX + ":play:(.*)", function(page, url) {
             title: '[' + match[2] + ']-' + title_s_e,
             icon: icon
         });
-        p(videoparams)
+        p(dump(videoparams))
     }
 
     page.appendItem("search:" + videoparams.title, "directory", {
@@ -782,37 +792,37 @@ getShows = function(options, callback) {
 };
 
 function p(message) {
-  if (service.debug == "1") {
-    print(message);
-  }
+    if (service.debug == "1") {
+        print(message);
+    }
 }
 
 function e(ex) {
-  console.log(ex);
-  console.log("Line #" + ex.lineNumber);
+    console.log(ex);
+    console.log("Line #" + ex.lineNumber);
 }
 
 function dump(arr, level) {
-  var dumped_text = "";
-  if (!level) {
-    level = 0;
-  }
-  var level_padding = "";
-  for (var j = 0; j < level + 1; j++) {
-    level_padding += "    ";
-  }
-  if (typeof arr == "object") {
-    for (var item in arr) {
-      var value = arr[item];
-      if (typeof value == "object") {
-        dumped_text += level_padding + "'" + item + "' ...\n";
-        dumped_text += dump(value, level + 1);
-      } else {
-        dumped_text += level_padding + "'" + item + "' => \"" + value + '"\n';
-      }
+    var dumped_text = "";
+    if (!level) {
+        level = 0;
     }
-  } else {
-    dumped_text = "===>" + arr + "<===(" + typeof arr + ")";
-  }
-  return dumped_text;
+    var level_padding = "";
+    for (var j = 0; j < level + 1; j++) {
+        level_padding += "    ";
+    }
+    if (typeof arr == "object") {
+        for (var item in arr) {
+            var value = arr[item];
+            if (typeof value == "object") {
+                dumped_text += level_padding + "'" + item + "' ...\n";
+                dumped_text += dump(value, level + 1);
+            } else {
+                dumped_text += level_padding + "'" + item + "' => \"" + value + '"\n';
+            }
+        }
+    } else {
+        dumped_text = "===>" + arr + "<===(" + typeof arr + ")";
+    }
+    return dumped_text;
 }

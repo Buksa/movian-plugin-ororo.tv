@@ -16,13 +16,13 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-//ver 0.7.11
+//ver 0.7.12
 var http = require('showtime/http');
 var html = require('showtime/html');
 var string = require('native/string');
 
 var plugin_info = plugin.getDescriptor();
-print(Plugin)
+
 var PREFIX = plugin_info.id;
 var USER_AGENT = 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:40.0) Gecko/20100101 Firefox/40.0'
 var BASE_URL = 'http://ororo.tv';
@@ -344,10 +344,11 @@ plugin.addURI(PREFIX + ":page:(.*)", function(page, link) {
         }
         var ptype = dom.root.getElementByClassName('translation-setup');
         if (ptype[0].attributes.getNamedItem('id').value == 'movie') {
-            var episode = dom.root.getElementByClassName('episode')[0];
-            p(dom.root.getElementById('description').getElementByTagName('p')[0].textContent);
+            var episode = dom.root.getElementByClassName('js-episode')[0];
+            
+            p(dom.root.getElementByClassName('show-content__description')[0].textContent);
             var href = episode.attributes.getNamedItem('data-href').value;
-            var plot = dom.root.getElementById('description').getElementByTagName('p')[0].textContent;
+            var plot = dom.root.getElementByClassName('show-content__description')[0].textContent;
             item = page.appendItem(PREFIX + ":play:" + href, "video", {
                 title: new showtime.RichText(ptitle),
                 description: new showtime.RichText(plot),
@@ -360,7 +361,7 @@ plugin.addURI(PREFIX + ":page:(.*)", function(page, link) {
             //code
         }
         //    try {
-        var seasons = dom.root.getElementByClassName('tab-content episodes-tab')[0];
+        var seasons = dom.root.getElementByClassName('tab-content show-content__episode-list')[0];
         if (seasons) {
             for (s = 1, i = 0; i < seasons.children.length; i++, s++) {
                 var season = seasons.children[i];
@@ -373,11 +374,12 @@ plugin.addURI(PREFIX + ":page:(.*)", function(page, link) {
                     var episode = episodes[j]
                     if (episode.children.length) {
                         var href = episode.getElementByTagName('a')[0].attributes.getNamedItem('data-href').value;
+                        var number = episode.getElementByTagName('a')[0].attributes.getNamedItem('href').value;
                         var title = episode.getElementByTagName('a')[0].textContent;
                         var id = episode.getElementByTagName('a')[0].attributes.getNamedItem('data-id').value;
-                        var plot = episode.getElementByClassName('plot')[0] ? episode.getElementByClassName('plot')[0].textContent : ''
+                        var plot = episode.getElementByClassName("episode-plot__text")[0] ? episode.getElementByClassName("episode-plot__text")[0].textContent : ''
                         item = page.appendItem(PREFIX + ":play:" + href, "video", {
-                            title: new showtime.RichText(title),
+                            title: new showtime.RichText(number +' ' +title),
                             description: new showtime.RichText(plot),
                             icon: icon,
                             rating: rating,
@@ -399,6 +401,7 @@ plugin.addURI(PREFIX + ":page:(.*)", function(page, link) {
             }
         }
     } catch (ex) {
+        p(ex)
         // page.error("Failed to process page");
         e(ex);
     }

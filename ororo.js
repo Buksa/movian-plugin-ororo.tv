@@ -16,7 +16,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
+//ver 0.7.14
 var http = require('showtime/http');
 var html = require('showtime/html');
 var string = require('native/string');
@@ -342,8 +342,7 @@ plugin.addURI(PREFIX + ":page:(.*)", function(page, link) {
             page.metadata.background = bg(ptitle);
             page.metadata.backgroundAlpha = 0.5;
         }
-        var ptype = dom.root.getElementByClassName('translation-setup');
-        if (ptype[0].attributes.getNamedItem('id').value == 'movie') {
+        if (/\/movies\//.test(link)) {
             var episode = dom.root.getElementByClassName('js-episode')[0];
             
             p(dom.root.getElementByClassName('show-content__description')[0].textContent);
@@ -359,7 +358,7 @@ plugin.addURI(PREFIX + ":page:(.*)", function(page, link) {
                 year: year
             });
             //code
-        }
+        } else
         //    try {
         var seasons = dom.root.getElementByClassName('tab-content show-content__episode-list')[0];
         if (seasons) {

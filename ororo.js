@@ -16,13 +16,12 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-//ver 0.7.12
+
 var http = require('showtime/http');
 var html = require('showtime/html');
 var string = require('native/string');
 
 var plugin_info = plugin.getDescriptor();
-
 var PREFIX = plugin_info.id;
 var USER_AGENT = 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:40.0) Gecko/20100101 Firefox/40.0'
 var BASE_URL = 'http://ororo.tv';
@@ -175,6 +174,7 @@ plugin.addURI(PREFIX + ":logout", function(page) {
 });
 //First level start page
 plugin.addURI(PREFIX + ":start", function(page) {
+    console.log(plugin_info.id +' is '+ plugin_info.version);
     page.loading = true;
     var i, v, remember_user_token, authenticity_token;
     if (!service.tosaccepted)
@@ -312,7 +312,7 @@ plugin.addURI(PREFIX + ":browse:(.*)", function(page, link) {
 
     } catch (ex) {
         t("Error while parsing main menu order");
-        e(ex);
+        err(ex);
     }
     page.loading = false;
 });
@@ -331,12 +331,12 @@ plugin.addURI(PREFIX + ":page:(.*)", function(page, link) {
         var ptitle = dom.root.getElementById('poster').attributes.getNamedItem('alt').value;
         //var icon = dom.root.getElementById('poster').attributes.getNamedItem('src').value;
         icon = BASE_URL + dom.root.getElementById('poster').attributes.getNamedItem('src').value;
-        var year = dom.root.getElementById('year') ? parseInt(dom.root.getElementById('year').textContent.trim(), 10) : 0;
+        var year = dom.root.getElementById('year') ? parseInt(dom.root.getElementById('year').textContent, 10) : 0;
         var rating = dom.root.getElementById('rating') ? (parseInt(dom.root.getElementById('rating').textContent, 10) * 10) : 0;
-        var duration = dom.root.getElementById('length') ? parseInt(dom.root.getElementById('length').textContent.trim(), 10) : 0;
+        var duration = dom.root.getElementById('length') ? parseInt(dom.root.getElementById('length').textContent, 10) : 0;
         page.metadata.logo = icon
 
-        var genre = dom.root.getElementById('genres') ? dom.root.getElementById('genres').textContent.trim() : '';
+        var genre = dom.root.getElementById('genres') ? dom.root.getElementById('genres').textContent : '';
         page.metadata.title = ptitle + " (" + year + ")";
         if (service.arrayview) {
             page.metadata.background = bg(ptitle);
@@ -401,9 +401,8 @@ plugin.addURI(PREFIX + ":page:(.*)", function(page, link) {
             }
         }
     } catch (ex) {
-        p(ex)
-        // page.error("Failed to process page");
-        e(ex);
+        err(ex);
+        page.error("Failed to process page");
     }
     page.loading = false;
 });
@@ -773,11 +772,6 @@ getShows = function(options, callback) {
                         list.push(show);
                     }
 
-                    //if (show.title.toLowerCase().indexOf(options.query.toLowerCase()) >= 0) {
-                    //    //console.log(show.title);
-                    //    list.push(show);
-                    //}
-
                 } else {
                     list.push(show)
                 }
@@ -800,7 +794,8 @@ function p(message) {
     }
 }
 
-function e(ex) {
+function err(ex) {
+    p('e:'+ex)
     console.log(ex);
     console.log("Line #" + ex.lineNumber);
 }

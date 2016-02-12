@@ -16,7 +16,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-//ver 0.7.14
+//ver 0.7.15
 var http = require('showtime/http');
 var html = require('showtime/html');
 var string = require('native/string');
@@ -174,7 +174,7 @@ plugin.addURI(PREFIX + ":logout", function(page) {
 });
 //First level start page
 plugin.addURI(PREFIX + ":start", function(page) {
-    console.log(plugin_info.id +' is '+ plugin_info.version);
+    console.log(plugin_info.id + ' is ' + plugin_info.version);
     page.loading = true;
     var i, v, remember_user_token, authenticity_token;
     if (!service.tosaccepted)
@@ -327,75 +327,82 @@ plugin.addURI(PREFIX + ":page:(.*)", function(page, link) {
         }
     });
     var dom = html.parse(res);
+    p(link)
     try {
-        var ptitle = dom.root.getElementById('poster').attributes.getNamedItem('alt').value;
-        //var icon = dom.root.getElementById('poster').attributes.getNamedItem('src').value;
+        var ptitle = dom.root.getElementByClassName('show-content__title')[0].textContent.trim();
         icon = BASE_URL + dom.root.getElementById('poster').attributes.getNamedItem('src').value;
-        var year = dom.root.getElementById('year') ? parseInt(dom.root.getElementById('year').textContent, 10) : 0;
-        var rating = dom.root.getElementById('rating') ? (parseInt(dom.root.getElementById('rating').textContent, 10) * 10) : 0;
-        var duration = dom.root.getElementById('length') ? parseInt(dom.root.getElementById('length').textContent, 10) : 0;
         page.metadata.logo = icon
 
-        var genre = dom.root.getElementById('genres') ? dom.root.getElementById('genres').textContent : '';
+        var year = dom.root.getElementById('year') ? parseInt(dom.root.getElementById('year').textContent.match(/\d{4}/), 10) : 0;
+        var duration = dom.root.getElementById('length') ? parseInt(dom.root.getElementById('length').textContent.match(/\d+/), 10) : '';
+
+        //var rating = dom.root.getElementById('rating') ? (parseInt(dom.root.getElementById('rating').textContent.match(/\d{1,2}\.\d+/), 10) * 10) : 0;
+        //var genre = dom.root.getElementById('genres') ? dom.root.getElementById('genres').textContent.match(/Genres:\s(.*)/)[1] : '';
         page.metadata.title = ptitle + " (" + year + ")";
         if (service.arrayview) {
             page.metadata.background = bg(ptitle);
             page.metadata.backgroundAlpha = 0.5;
         }
+
+
         if (/\/movies\//.test(link)) {
+            p('Movies')
             var episode = dom.root.getElementByClassName('js-episode')[0];
-            
-            p(dom.root.getElementByClassName('show-content__description')[0].textContent);
             var href = episode.attributes.getNamedItem('data-href').value;
             var plot = dom.root.getElementByClassName('show-content__description')[0].textContent;
             item = page.appendItem(PREFIX + ":play:" + href, "video", {
                 title: new showtime.RichText(ptitle),
                 description: new showtime.RichText(plot),
                 icon: icon,
-                rating: rating,
-                duration: duration,
-                genre: genre,
-                year: year
+                year: +year,
+                duration: duration //,
+                //                genre: genre,
+                //                rating: rating,
             });
-            //code
-        } else
-        //    try {
-        var seasons = dom.root.getElementByClassName('tab-content show-content__episode-list')[0];
-        if (seasons) {
-            for (s = 1, i = 0; i < seasons.children.length; i++, s++) {
-                var season = seasons.children[i];
-                page.appendItem("", "separator", {
-                    title: new showtime.RichText('Season ' + s)
-                });
-                var episodes = season.getElementByTagName('li');
-                e = 1;
-                for (j in episodes) {
-                    var episode = episodes[j]
-                    if (episode.children.length) {
-                        var href = episode.getElementByTagName('a')[0].attributes.getNamedItem('data-href').value;
-                        var number = episode.getElementByTagName('a')[0].attributes.getNamedItem('href').value;
-                        var title = episode.getElementByTagName('a')[0].textContent;
-                        var id = episode.getElementByTagName('a')[0].attributes.getNamedItem('data-id').value;
-                        var plot = episode.getElementByClassName("episode-plot__text")[0] ? episode.getElementByClassName("episode-plot__text")[0].textContent : ''
-                        item = page.appendItem(PREFIX + ":play:" + href, "video", {
-                            title: new showtime.RichText(number +' ' +title),
-                            description: new showtime.RichText(plot),
-                            icon: icon,
-                            rating: rating,
-                            duration: duration,
-                            genre: genre,
-                            year: year
-                        });
-                        //if (service.thetvdb) {
-                        //    item.bindVideoMetadata({
-                        //        title: trim(ptitle),
-                        //        season: +s,
-                        //        episode: +e
-                        //    });
-                        //}
-                        p(title);
+        }
+
+        if (/\/shows\//.test(link)) {
+            p('shows')
+            var seasons = dom.root.getElementByClassName('show-content__episode-list')[0];
+            if (seasons) {
+                p('have ' + seasons.children.length + ' season tab')
+                for (i = 0; i < seasons.children.length; i++) {
+                    var season = seasons.children[i];
+                    page.appendItem("", "separator", {
+                        title: new showtime.RichText('Season ' + season.attributes.getNamedItem('id').value)
+                    });
+
+                    var episodes = season.getElementByClassName('show-content__episode-row');
+                    p('season ' + season.attributes.getNamedItem('id').value + ' have ' + episodes.length + ' epsode')
+                    for (j in episodes) {
+                        var episode = episodes[j];
+
+                        if (episode.getElementByClassName('episode-box')[0]) {
+                            var href = episode.getElementByTagName('a')[0].attributes.getNamedItem('data-href').value;
+                            var id = episode.getElementByTagName('a')[0].attributes.getNamedItem('data-id').value;
+                            var number = episode.getElementByTagName('a')[0].attributes.getNamedItem('href').value;
+                            var title = episode.getElementByTagName('a')[0].textContent;
+                            var plot = episode.getElementByClassName("episode-plot__text")[0] ? episode.getElementByClassName("episode-plot__text")[0].textContent : ''
+                            item = page.appendItem(PREFIX + ":play:" + href, "video", {
+                                title: new showtime.RichText(number + ' ' + title.trim()),
+                                description: new showtime.RichText(plot.trim()),
+                                icon: icon,
+                                duration: duration,
+                                //rating: +rating,
+                                //genre: genre,
+                                //year:  parseInt(year, 10)
+                            });
+
+                        }
+                        //    //if (service.thetvdb) {
+                        //    //    item.bindVideoMetadata({
+                        //    //        title: trim(ptitle),
+                        //    //        season: +s,
+                        //    //        episode: +e
+                        //    //    });
+                        //    //}
+                        //    p(title);
                     }
-                    e++;
                 }
             }
         }
@@ -414,6 +421,7 @@ plugin.addURI(PREFIX + ":play:(.*)", function(page, url) {
     var videoparams = {
         canonicalUrl: canonicalUrl,
         no_fs_scan: true,
+        no_subtitle_scan: true,
         title: '',
         season: 0,
         episode: 0,
@@ -433,6 +441,7 @@ plugin.addURI(PREFIX + ":play:(.*)", function(page, url) {
         }
     });
     var dom = html.parse(res);
+    p(res)
     var video = dom.root.getElementByTagName('video');
     res = res.toString();
     videoparams.title = video[0].attributes.getNamedItem('data-show').value;
@@ -465,37 +474,53 @@ plugin.addURI(PREFIX + ":play:(.*)", function(page, url) {
         //    });
         //}
     }
-    p(dump(videoparams))
-    regExp = /(http:.*?(webm)[^']+)/g
-    while (((match = regExp.exec(res)) !== null)) {
+    dom.root.getElementByTagName('source').forEach(function(element) {
         videoparams.sources = [{
-                url: string.entityDecode(match[1])
+                url: string.entityDecode(element.attributes.getNamedItem('src').value),
+                mimetype: element.attributes.getNamedItem('type').value
             }
         ]
 
         video = "videoparams:" + JSON.stringify(videoparams)
         item = page.appendItem(video, "video", {
-            title: '[' + match[2] + ']-' + title_s_e,
-            icon: icon
-        });
-
-        p(dump(videoparams))
-    }
-    videoparams.sources = [{}]
-    regExp = /(http:.*?(mp4)[^']+)/g
-    while (((match = regExp.exec(res)) !== null)) {
-        videoparams.sources = [{
-                url: string.entityDecode(match[1])
-            }
-        ]
-
-        video = "videoparams:" + JSON.stringify(videoparams)
-        page.appendItem(video, "video", {
-            title: '[' + match[2] + ']-' + title_s_e,
+            title: '[' + element.attributes.getNamedItem('type').value + ']-' + title_s_e,
             icon: icon
         });
         p(dump(videoparams))
-    }
+
+    })
+    //                                                     
+    //p(dump(videoparams))
+    //regExp = /(http:.*?(webm)[^']+)/g
+    //while (((match = regExp.exec(res)) !== null)) {
+    //    videoparams.sources = [{
+    //            url: string.entityDecode(match[1])
+    //        }
+    //    ]
+    //
+    //    video = "videoparams:" + JSON.stringify(videoparams)
+    //    item = page.appendItem(video, "video", {
+    //        title: '[' + match[2] + ']-' + title_s_e,
+    //        icon: icon
+    //    });
+    //
+    //    p(dump(videoparams))
+    //}
+    //videoparams.sources = [{}]
+    //regExp = /(http:.*?(mp4)[^']+)/g
+    //while (((match = regExp.exec(res)) !== null)) {
+    //    videoparams.sources = [{
+    //            url: string.entityDecode(match[1])
+    //        }
+    //    ]
+    //
+    //    video = "videoparams:" + JSON.stringify(videoparams)
+    //    page.appendItem(video, "video", {
+    //        title: '[' + match[2] + ']-' + title_s_e,
+    //        icon: icon
+    //    });
+    //    p(dump(videoparams))
+    //}
 
     page.appendItem("search:" + videoparams.title, "directory", {
         title: 'Try Search for: ' + videoparams.title
@@ -794,7 +819,7 @@ function p(message) {
 }
 
 function err(ex) {
-    p('e:'+ex)
+    p('e:' + ex)
     console.log(ex);
     console.log("Line #" + ex.lineNumber);
 }

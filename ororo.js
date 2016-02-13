@@ -16,7 +16,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-//ver 0.7.15
+//ver 0.7.16
 var http = require('showtime/http');
 var html = require('showtime/html');
 var string = require('native/string');
@@ -421,7 +421,6 @@ plugin.addURI(PREFIX + ":play:(.*)", function(page, url) {
     var videoparams = {
         canonicalUrl: canonicalUrl,
         no_fs_scan: true,
-        no_subtitle_scan: true,
         title: '',
         season: 0,
         episode: 0,
@@ -441,7 +440,6 @@ plugin.addURI(PREFIX + ":play:(.*)", function(page, url) {
         }
     });
     var dom = html.parse(res);
-    p(res)
     var video = dom.root.getElementByTagName('video');
     res = res.toString();
     videoparams.title = video[0].attributes.getNamedItem('data-show').value;

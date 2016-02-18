@@ -16,7 +16,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-//ver 0.7.16
+//ver 0.7.17
 var http = require('showtime/http');
 var html = require('showtime/html');
 var string = require('native/string');
@@ -27,7 +27,7 @@ var USER_AGENT = 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:40.0) Gecko/2010010
 var BASE_URL = 'http://ororo.tv';
 var logo = plugin.path + plugin_info.icon;
 var loggedIn = false;
-var icon
+var icon, stitle
 var tos = 'The developer has no affiliation with the sites what so ever.\n';
 tos += 'Nor does he receive money or any other kind of benefits for them.\n\n';
 tos += 'The software is intended solely for educational and testing purposes,\n';
@@ -99,7 +99,7 @@ plugin.addItemHook({
 plugin.addHTTPAuth("http:\/\/.*ororo.tv.*", function(authreq) {
     authreq.setHeader('User-Agent', 'Mozilla/5.0 (Windows NT 6.3; WOW64; rv:42.0) Gecko/20100101 Firefox/42.0');
     authreq.setHeader('Accept-Encoding', 'gzip, deflate');
-    //  authreq.setCookie("video", "true");
+    //authreq.setCookie("nl", "true");
 });
 
 plugin.addURI(PREFIX + ":login:(.*):(.*)", function(page, showAuth, token) {
@@ -330,6 +330,9 @@ plugin.addURI(PREFIX + ":page:(.*)", function(page, link) {
     p(link)
     try {
         var ptitle = dom.root.getElementByClassName('show-content__title')[0].textContent.trim();
+        p(stitle)
+        stitle = ptitle
+        p(stitle)
         icon = BASE_URL + dom.root.getElementById('poster').attributes.getNamedItem('src').value;
         page.metadata.logo = icon
 
@@ -417,11 +420,12 @@ plugin.addURI(PREFIX + ":play:(.*)", function(page, url) {
     var canonicalUrl = PREFIX + ":play:" + url;
     page.loading = true;
     p(icon)
-
+    p(stitle)
+    
     var videoparams = {
         canonicalUrl: canonicalUrl,
         no_fs_scan: true,
-        title: '',
+        title: stitle,
         season: 0,
         episode: 0,
         sources: [{
@@ -441,9 +445,7 @@ plugin.addURI(PREFIX + ":play:(.*)", function(page, url) {
     });
     var dom = html.parse(res);
     var video = dom.root.getElementByTagName('video');
-    res = res.toString();
-    videoparams.title = video[0].attributes.getNamedItem('data-show').value;
-    //  icon = BASE_URL + video[0].attributes.getNamedItem('poster').value
+    //res = res.toString();
     title_s_e = video[0].attributes.getNamedItem('data-title').value
     if (video[0].attributes.getNamedItem('data-season')) {
         videoparams.season = video[0].attributes.getNamedItem('data-season') ? +video[0].attributes.getNamedItem('data-season').value : 0;
@@ -461,17 +463,8 @@ plugin.addURI(PREFIX + ":play:(.*)", function(page, url) {
                 title: element.attributes.getNamedItem('src').value.match(/file\/\d+\/([^']+)/)[1]
             });
         }
-        //var re = /subtitles'.*?label='([^']+)+.*?src='([^']+)/g;
-        //var subtitles = re.exec(res);
-        //while (((subtitles = re.exec(res)) !== null)) {
-        //    p("Found subtitles:" + subtitles[1] + subtitles[2]);
-        //    videoparams.subtitles.push({
-        //        url: BASE_URL + subtitles[2],
-        //        language: subtitles[1],
-        //        title: subtitles[2].match(/file\/\d+\/([^']+)/)[1]
-        //    });
-        //}
     }
+    
     dom.root.getElementByTagName('source').forEach(function(element) {
         videoparams.sources = [{
                 url: string.entityDecode(element.attributes.getNamedItem('src').value),
@@ -487,38 +480,6 @@ plugin.addURI(PREFIX + ":play:(.*)", function(page, url) {
         p(dump(videoparams))
 
     })
-    //                                                     
-    //p(dump(videoparams))
-    //regExp = /(http:.*?(webm)[^']+)/g
-    //while (((match = regExp.exec(res)) !== null)) {
-    //    videoparams.sources = [{
-    //            url: string.entityDecode(match[1])
-    //        }
-    //    ]
-    //
-    //    video = "videoparams:" + JSON.stringify(videoparams)
-    //    item = page.appendItem(video, "video", {
-    //        title: '[' + match[2] + ']-' + title_s_e,
-    //        icon: icon
-    //    });
-    //
-    //    p(dump(videoparams))
-    //}
-    //videoparams.sources = [{}]
-    //regExp = /(http:.*?(mp4)[^']+)/g
-    //while (((match = regExp.exec(res)) !== null)) {
-    //    videoparams.sources = [{
-    //            url: string.entityDecode(match[1])
-    //        }
-    //    ]
-    //
-    //    video = "videoparams:" + JSON.stringify(videoparams)
-    //    page.appendItem(video, "video", {
-    //        title: '[' + match[2] + ']-' + title_s_e,
-    //        icon: icon
-    //    });
-    //    p(dump(videoparams))
-    //}
 
     page.appendItem("search:" + videoparams.title, "directory", {
         title: 'Try Search for: ' + videoparams.title

@@ -16,18 +16,22 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-//ver 0.7.17
-var http = require('showtime/http');
-var html = require('showtime/html');
+//ver 0.8.5
+var http = require('movian/http');
+var html = require('movian/html');
 var string = require('native/string');
+var io = require("native/io");
+//var popu
 
 var plugin_info = plugin.getDescriptor();
 var PREFIX = plugin_info.id;
 var USER_AGENT = 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:40.0) Gecko/20100101 Firefox/40.0'
-var BASE_URL = 'http://ororo.tv';
+var BASE_URL = 'https://ororo.tv';
 var logo = plugin.path + plugin_info.icon;
 var loggedIn = false;
-var icon, stitle
+var icon, stitle, token = '';
+var items = [];
+var items_tmp = [];
 var tos = 'The developer has no affiliation with the sites what so ever.\n';
 tos += 'Nor does he receive money or any other kind of benefits for them.\n\n';
 tos += 'The software is intended solely for educational and testing purposes,\n';
@@ -48,132 +52,235 @@ var service = plugin.createService("Ororo.tv", PREFIX + ":start", "video", true,
 //settings
 var settings = plugin.createSettings("Ororo.tv", logo, plugin_info.synopsis);
 //var main_menu_order = plugin.createStore('main_menu_order', true);
-var items = [];
-var items_tmp = [];
 settings.createInfo("info", logo, "Plugin developed by " + plugin_info.author + ". \n");
 settings.createDivider('Settings:');
-settings.createBool("tosaccepted", "Accepted TOS (available in opening the plugin)", false, function(v) {
+settings.createBool("tosaccepted", "Accepted TOS (available in opening the plugin)", false, function (v) {
     service.tosaccepted = v;
 });
-settings.createString('geoURL', "geo URL", 'http://ororo.tv', function(v) {
-    service.geoURL = v;
-});
-settings.createBool("arrayview", "Show array view", false, function(v) {
-    service.arrayview = v;
-});
-settings.createBool("thetvdb", "Show more information using thetvdb", false, function(v) {
+
+settings.createBool("thetvdb", "Show more information using thetvdb", false, function (v) {
     service.thetvdb = v;
 });
-settings.createBool("subs", "Show Subtitle from Ororo.tv ", true, function(v) {
+settings.createBool("subs", "Show Subtitle from Ororo.tv ", true, function (v) {
     service.subs = v;
 });
-settings.createBool("search", "Search", true, function(v) {
+settings.createBool("search", "Search", true, function (v) {
     service.search = v;
 });
-settings.createBool("debug", "Debug logging", false, function(v) {
+settings.createBool("debug", "Debug logging", false, function (v) {
     service.debug = v;
 });
 
 
 
-//    require('showtime/itemhook').create({
-//    title: "Search in Another Apps",
-//    itemtype: "video",
-//    handler: function(obj, nav) {
-//        var title = obj.metadata.title.toString();
-//        title = title.replace(/<.+?>/g, "").replace(/\[.+?\]/g, "");
-//        nav.openURL("search:" + title);
-//    }
-//});
-
-plugin.addItemHook({
+require('movian/itemhook').create({
     title: "Search in Another Apps",
     itemtype: "video",
-    handler: function(obj, nav) {
+    handler: function (obj, nav) {
         var title = obj.metadata.title.toString();
         title = title.replace(/<.+?>/g, "").replace(/\[.+?\]/g, "");
         nav.openURL("search:" + title);
     }
 });
+
 //set header and cookies for ororo.tv
-plugin.addHTTPAuth("http:\/\/.*ororo.tv.*", function(authreq) {
+plugin.addHTTPAuth("http.*ororo.tv.*", function (authreq) {
     authreq.setHeader('User-Agent', 'Mozilla/5.0 (Windows NT 6.3; WOW64; rv:42.0) Gecko/20100101 Firefox/42.0');
-    authreq.setHeader('Accept-Encoding', 'gzip, deflate');
-    //authreq.setCookie("nl", "true");
+    // authreq.setHeader('Referer', 'https://ororo.tv/');
+    // authreq.setCookie("nl", "true");
+    // authreq.setCookie("_gat", "true");
+    // authreq.setCookie("check",'t')
+    // authreq.setCookie("mp4_only", "false");
 });
 
-plugin.addURI(PREFIX + ":login:(.*):(.*)", function(page, showAuth, token) {
-    popup.notify('Start login procedure for Ororo.tv', 5);
-    p("showAuth:" + showAuth)
 
-    var showAuthCredentials = false;
-    if (showAuth == 'true') showAuthCredentials = true;
-    while (1) {
-        var credentials = plugin.getAuthCredentials("Ororo.tv", "Login required", showAuthCredentials);
-        if (credentials.rejected) return; //rejected by user
-        if (credentials) {
+  /*
+   * Login user
+   * The headweb session is handled via standard HTTP cookies.
+   * This is taken care of by Showtime's HTTP client.
+   * If 'query' is set we will ask user for username/password
+   * otherwise we just try to login using the credentials stored in 
+   * Showtime's keyring.
+   *
+   */
 
-            try {
-                v = http.request(service.geoURL + '/users/sign_in', {
-                    noFollow: true,
-                    postdata: {
-                        utf8: '✓',
-                        authenticity_token: token,
-                        'user[email]': credentials.username,
-                        'user[password]': credentials.password,
-                        'user[remember_me]': 0,
-                        'user[remember_me]': 1
-                    },
-                    headers: {
+  function login(query) {
+    
+        if(loggedIn)
+          return false;
+    
+        var reason = "Login required";
+        var do_query = false;
 
-                        'Host': 'ororo.tv',
-                        'Connection': 'keep-alive',
-                        //Content-Length: 257
-                        'Origin': 'http://ororo.tv',
-                        'X-CSRF-Token': token,
-                        'User-Agent': USER_AGENT,
-                        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-                        'Accept': '*/*',
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'Referer': service.geoURL + '/users/sign_in',
-                        'Accept-Encoding': 'gzip, deflate',
-                        'Accept-Language': 'en-US,en;q=0.8,zh;q=0.6,zh-CN;q=0.4,zh-TW;q=0.2'
-                    }
-                }).toString();
-
-            } catch (error) {
-                p(error)
-                showAuth = true
-                showAuthCredentials = true;
-                continue
+        while(true) {   
+          var credentials = plugin.getAuthCredentials("Headweb streaming service",reason, do_query);
+        
+          if(!credentials) {
+        if(query && !do_query) {
+          do_query = true;
+          continue;
+        }
+        reason = "No credentials"
+        return false;
+          }
+    
+          if(credentials.rejected){
+            reason = 'Rejected by user'
+              console.log('Rejected by use')
+        return false;}
+    
+          var v = showtime.httpReq("https://api.headweb.com/v4/user/login", {
+    
+            postdata: {
+          username: credentials.username,
+          password: credentials.password
+            },
+    
+            args: {
+          apikey: APIKEY
             }
+          });
+    
+          var doc = XML.parse(v).response;
+          if(doc.error) {
+        reason = doc.error;
+        do_query = true;
+        continue;
+          }
+          showtime.trace('Logged in to Headweb as user: ' + credentials.username);
+          //loggedIn = true;
+          return false;
+        }
+      }   
+plugin.addURI(PREFIX + ":login:(.*):(.*)", function (page, showAuth, token) {
+    var loggedIn = false;
+    // if(login(true))
+    // return false;
 
-            showAuthCredentials = /"email":"([^"]+)"/g.test(v)
-            p(showAuthCredentials)
-            if (!showAuthCredentials) break;
-        };
-        showAuthCredentials = true;
+    headers = {
+        origin: 'https://ororo.tv',
+        accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+        authority: 'ororo.tv',
+        referer: 'https://ororo.tv/en/modals/login',
+        'accept-encoding': 'gzip, deflate',
+        'accept-language': 'en-US,en;q=0.9,ru;q=0.8',
+        'upgrade-insecure-requests': '1',
+        'content-type': 'application/x-www-form-urlencoded',
+        'cache-control': 'max-age=0',
+      };
+      
+
+    postdata = {
+         utf8: '✓',
+         commit: 'Log in',
+         'user[email]': '',
+         'user[password]': ''
     };
 
 
+    http.request(
+        'https://ororo.tv/en/users/sign_in.json',
+        {
+          method: 'POST',
+          //noFail: true,
+          headers: {
+            origin: 'https://ororo.tv',
+            accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+            authority: 'ororo.tv',
+            referer: 'https://ororo.tv/en/modals/login',
+            'accept-encoding': 'gzip, deflate',
+            'accept-language': 'en-US,en;q=0.9,ru;q=0.8',
+            'upgrade-insecure-requests': '1',
+            'content-type': 'application/x-www-form-urlencoded',
+            'cache-control': 'max-age=0'
+          },
+          postdata: {
+            utf8: '✓',
+            commit: 'Log in',
+            'user[email]': '',
+            'user[password]': ''
+          }
+        },
+        function(err, result) {
+          if (err) {
+            page.error(err);
+          }
+          console.log(result);
+          page.redirect(PREFIX + ':start');
+        }
+      );
+      
+    console.log(v.tostring());
+    page.flush();
     page.redirect(PREFIX + ':start');
 
+    // // popup.notify('Start login procedure for Ororo.tv', 5);
+    // console.log(credentials)
+    // var credentials = plugin.getAuthCredentials("Ororo.tv", "Login Required", 1, null, true);
+    // console.log(credentials)
+    // if (credentials.rejected) {
+    //     page.flush();
+    //     page.redirect(PREFIX + ':start');
+    // } //return "Rejected by user"
+    // // if (credentials.username !== "" && credentials.password !== "") {
+
+
+    //      v = http.request('https://ororo.tv/en/users/sign_in.json', {
+    //          method: 'POST',
+    // //         noFollow: true,
+    // //         noFail: 0,
+    //          debug: true,
+    //          postdata: {
+    //             'commit': 'Log in',
+    //              'user[email]': credentials.username,
+    //              'user[password]': credentials.password,
+    //              'utf8': '✓'
+    //         },
+    //          headers: {
+    //              "Origin": "https://ororo.tv",
+    //              "X-CSRF-Token": token,
+    //              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.62 Safari/537.36",
+    //              "Content-Type": "application/x-www-form-urlencoded",
+    //              "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+    //              "X-Requested-With": "XMLHttpRequest",
+    //              "Authority": "ororo.tv",
+    //              "Referer": "https://ororo.tv/en/modals/login",
+    //              //         "Accept-Encoding": "gzip, deflate, br",
+    //              //         "Accept-Language": "en-US,en;q=0.8"
+    //          }
+    //      },function(err, result) {
+    //          console.log
+    //         if(err) {
+    //           page.error(err);
+    //         }
+    //     });
+    //     });
+    // //     console.log(v.toString())
+    // // console.log('delaem zapros')
+    // // console.log(credentials)
+    // // if (v.statuscode !== '200') return
+    // // if (v.statuscode == '200') {
+    // //     popup.notify('status 200', 5);
+    // // }
+    // //}
+    // //  page.redirect(PREFIX + ':start');
+
 });
-plugin.addURI(PREFIX + ":logout", function(page) {
-    var request = http.request(service.geoURL + '/users/sign_out', {
-        noFollow: true,
+plugin.addURI(PREFIX + ":logout", function (page) {
+    var request = http.request('https://ororo.tv/en/users/sign_out', {
+        // noFollow: true,
         headers: {
-            'Referer': service.geoURL + '/users/sign_out',
+            // 'Referer': BASE_URL + 'en/users/sign_out',
             'User-Agent': USER_AGENT
         }
     });
     loggedIn = false
     popup.notify('Successfully logout from Ororo.tv', 2);
     page.loading = false;
-    //page.redirect(PREFIX + ":start");
+    page.redirect(PREFIX + ":start");
 });
 //First level start page
-plugin.addURI(PREFIX + ":start", function(page) {
+plugin.addURI(PREFIX + ":start", function (page) {
     console.log(plugin_info.id + ' is ' + plugin_info.version);
     page.loading = true;
     var i, v, remember_user_token, authenticity_token;
@@ -184,54 +291,38 @@ plugin.addURI(PREFIX + ":start", function(page) {
             return;
         }
 
-    p(http.request('http://ororo.tv/nl', {
-        debug: service.debug,
-        // noFollow: true,//,
-        headers: { //'Host': 'ororo.tv',
-            //'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:40.0) Gecko/20100101 Firefox/40.0',
-            //'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            //'Accept-Language': 'en-US,en;q=0.5',
-            'Accept-Encoding': 'gzip, deflate'
-            //'Cookie': 'locale=en; nl=true;'
-            //'Connection': 'keep-alive'
-        }
-    }).toString())
-    if (showtime.currentVersionInt < 49900000) {
-        page.metadata.glwview = plugin.path + "views/array2.view"
-        page.contents = 'items';
-    } else page.model.contents = 'grid'; //page.metadata.glwview = plugin.path + "views/array2.view";
-    pageMenu(page);
     page.metadata.logo = logo;
     page.metadata.title = PREFIX;
-    page.appendItem(PREFIX + ":browse:" + '/', 'directory', {
+
+    page.appendItem(PREFIX + ":browse:" + '/en/shows', 'directory', {
         title: 'tv shows'
     });
-    page.appendItem(PREFIX + ":browse:" + '/movies#free', 'directory', {
+    page.appendItem(PREFIX + ":browse:" + '/en/movies#free', 'directory', {
         title: 'movies'
-    })
-    v = http.request(service.geoURL /*+'/users/sign_in'*/ , {
+    });
+    v = http.request('https://ororo.tv/en', { //BASE_URL+'/en', {
         method: 'GET',
         //noFollow: true,
-        headers: {
-            'User-Agent': USER_AGENT
-        }
+        //  headers: {
+        //     'User-Agent': USER_AGENT
+        //  },
+        //  noFail: true,       // Don't throw on HTTP errors (400- status code)
+        compression: true, // Will send 'Accept-Encoding: gzip' in request
+        //caching: true, // Enables Movian's built-in HTTP cache
+        //cacheTime: 600
     }).toString();
     var dom = html.parse(v);
-    //check for LOGIN state
-    var reLogin = /"email":"([^"]+)"/g;
-    var loginState = reLogin.exec(v);
-    p('loginState' + loginState)
-
-    if (!loginState) {
-        p('Login procedure started!~');
-        if (MetaTag(dom, "csrf-token")) token = MetaTag(dom, "csrf-token");
-        p("will redirect to (PREFIX + ':login:true:token')");
-        page.redirect(PREFIX + ':login:false:' + token);
-        return;
+    ////check for LOGIN state
+    token = MetaTag(dom, "csrf-token")
+    if (dom.root.getElementByClassName('login').length) {
+        token = MetaTag(dom, "csrf-token")
+        page.appendItem(PREFIX + ':login:true:' + token, 'directory', {
+            title: 'login'
+        })
     } else {
-        print('Logged in as:' + loginState[1]);
+        name = dom.root.getElementByClassName('dropmodule-profile')[0].getElementByTagName('span')[0].textContent
         page.appendItem(PREFIX + ":logout", "directory", {
-            title: new showtime.RichText("Log out form account " + loginState[1])
+            title: new showtime.RichText("Log out form account " + name)
         });
     }
     page.metadata.title = dom.root.getElementByTagName('title')[0].textContent;
@@ -240,100 +331,113 @@ plugin.addURI(PREFIX + ":start", function(page) {
     page.contents = "items";
 });
 
-plugin.addURI(PREFIX + ":browse:(.*)", function(page, link) {
+plugin.addURI(PREFIX + ":browse:(.*)", function (page, link) {
     page.loading = true;
     page.type = "directory";
     page.contents = "items";
-    if (showtime.currentVersionInt < 49900000) {
-        page.metadata.glwview = plugin.path + "views/array2.view"
-        page.contents = 'items';
-    } else page.model.contents = 'grid'; //page.metadata.glwview = plugin.path + "views/array2.view";
+    //if (showtime.currentVersionInt < 49900000) {
+    //    page.metadata.glwview = plugin.path + "views/array2.view"
+    //    page.contents = 'items';
+    //} else page.model.contents = 'grid'; //page.metadata.glwview = plugin.path + "views/array2.view";
     pageMenu(page);
     items = [];
     items_tmp = [];
-    p(link)
-    link == '/' ? link = service.geoURL : link = service.geoURL + link
-    p(link)
-    var dom = html.parse(http.request(link, {
+
+    var resp = http.request(BASE_URL + link, {
         method: 'GET',
+        compression: true, // Will send 'Accept-Encoding: gzip' in request
+        caching: true, // Enables Movian's built-in HTTP cache
+        //cacheTime: 300,
         headers: {
             'User-Agent': USER_AGENT,
-            'Accept-Encoding': 'gzip, deflate'
+            //    'Accept-Encoding': 'gzip, deflate'
         }
-    }));
-
-    var infoshow = []
-    dom.root.getElementByClassName('index show').forEach(function(element, i) {
-        page.metadata.title = new showtime.RichText('Ororo.tv | ' + (link == service.geoURL ? "TV Shows" : "Movies") + ' [' + i + ']');
-        var show = {}
-        show.newest = element.attributes.getNamedItem('data-newest').value;
-        show.title = element.getElementByClassName('name')[0].textContent.trim();
-        show.href = element.getElementByClassName('name')[0].attributes.getNamedItem('href').value;
-        show.icon = element.getElementByTagName('img')[0].attributes.length == 4 ? element.getElementByTagName('img')[0].attributes.getNamedItem('src').value : element.getElementByTagName('img')[0].attributes.getNamedItem('data-original').value;
-        show.desc = element.getElementByClassName('desc')[0].getElementByTagName('p')[0].textContent;
-        show.year = element.getElementByClassName('cam')[0].getElementByClassName('value')[0].textContent;
-        show.rating = parseInt((element.getElementByClassName('star')[0].getElementByClassName('value')[0].textContent ? element.getElementByClassName('star')[0].getElementByClassName('value')[0].textContent : '0'), 10);
-        show.lastupdated = element.attributes.getNamedItem('data-lastupdated').value;
-        show.genre = element.attributes.getNamedItem('data-info').value;
-        show.free = element.getElementByClassName('show_block free').length;
-        if (show.free) {
-            show.lastupdated = Date.now();
-            show.title = '<font color="#52f7b9">' + show.title + '</font>';
-        }
-        infoshow.push(show);
-    })
-    var its = sort(infoshow, {
-        lastupdated: 0
     });
 
-    its.forEach(function(i) {
-        var item = page.appendItem(PREFIX + ":page:" + i.href, "video", {
-            title: new showtime.RichText(i.title.trim()),
-            icon: BASE_URL + i.icon,
-            description: i.desc + '\n' + i.lastupdated,
-            rating: i.rating * 10,
-            genre: i.genre,
-            year: parseInt(i.year, 10)
-        });
-        item.title = i.title
-        item.lastupdated = i.lastupdated;
-        item.newest = i.newest
-        item.rating = i.rating;
-        item.free = i.free.length;
-        items.push(item);
-        //    //items_tmp.push(item);
+    var dom = html.parse(resp).root;
+    console.log(dom.getElementByClassName('card-inner').length);
+    //  token = MetaTag(dom, "csrf-token")
+    var infoshow = []
+    console.log('sssssssssssssss')
+    dom.getElementByClassName('card-inner').forEach(function (element, i) {
+        console.log(element)
+        console.log(i)
+
+        page.metadata.title = new showtime.RichText('Ororo.tv | ' + (link == '/en' ? "TV Shows" : "Movies") + ' [' + i + ']');
+        var show = {}
+        show.newest = element.attributes.getNamedItem('data-newest').value;
+        //     show.title = element.getElementByClassName('card-title')[0].textContent.trim();
+        //     show.href = element.getElementByClassName('card-title')[0].attributes.getNamedItem('href').value;
+        //     icon = element.getElementByTagName('img')[0].attributes;
+        //     show.icon = (icon.length <= 2 ? icon.getNamedItem('src').value : icon.getNamedItem('data-original').value)
+        //     show.desc = element.getElementByClassName('card-text')[0].textContent
+        //     show.year = element.getElementByClassName('js-card-year')[0].textContent;
+        //     //show.rating = parseInt((element.getElementByClassName('star')[0].getElementByClassName('value')[0].textContent ? element.getElementByClassName('star')[0].getElementByClassName('value')[0].textContent : '0'), 10);
+        //     show.rating = parseInt(element.attributes.getNamedItem('data-rating').value, 10);
+        //     show.lastupdated = element.attributes.getNamedItem('data-lastupdated').value;
+        //     show.genre = element.attributes.getNamedItem('data-info').value;
+        //     show.free = element.getElementByClassName('show_block free').length;
+        //     console.log(show)
+        //     if (show.free) {
+        //         show.lastupdated = Date.now();
+        //         show.title = '<font color="#52f7b9">' + show.title + '</font>';
+        //     }
+        //     infoshow.push(show);
+        // })
+        // var its = sort(infoshow, {
+        //     lastupdated: 0
+        // });
+
+        // its.forEach(function (i) {
+        //     var item = page.appendItem(PREFIX + ":page:" + i.href, "video", {
+        //         title: new showtime.RichText(i.title.trim()),
+        //         icon: i.icon,
+        //         description: i.desc + '\n' + i.lastupdated,
+        //         rating: i.rating * 10,
+        //         genre: i.genre,
+        //         year: parseInt(i.year, 10)
+        //     });
+        //     item.title = i.title
+        //     item.lastupdated = i.lastupdated;
+        //     item.newest = i.newest
+        //     item.rating = i.rating;
+        //     item.free = i.free.length;
+        //     items.push(item);
+        //     //    //items_tmp.push(item);
     })
 
-    try {
-        items.forEach(function(items, i) {
-            items.id = i
-        })
-        items_tmp = page.getItems();
+    // try {
+    //     items.forEach(function (items, i) {
+    //         items.id = i
+    //     })
+    //     items_tmp = page.getItems();
 
-    } catch (ex) {
-        t("Error while parsing main menu order");
-        err(ex);
-    }
+    // } catch (ex) {
+    //     t("Error while parsing main menu order");
+    //     err(ex);
+    // }
     page.loading = false;
 });
-plugin.addURI(PREFIX + ":page:(.*)", function(page, link) {
+plugin.addURI(PREFIX + ":page:(.*)", function (page, link) {
     page.type = "directory";
     page.contents = "items";
     var res = http.request(BASE_URL + link, {
         method: 'GET',
+        compression: true, // Will send 'Accept-Encoding: gzip' in request
+        caching: true, // Enables Movian's built-in HTTP cache
+        cacheTime: 600,
         headers: {
             'User-Agent': USER_AGENT,
-            'Accept-Encoding': 'gzip, deflate'
+            //'Accept-Encoding': 'gzip'
         }
     });
+
     var dom = html.parse(res);
-    p(link)
+    token = MetaTag(dom, "csrf-token")
     try {
         var ptitle = dom.root.getElementByClassName('show-content__title')[0].textContent.trim();
-        p(stitle)
         stitle = ptitle
-        p(stitle)
-        icon = BASE_URL + dom.root.getElementById('poster').attributes.getNamedItem('src').value;
+        icon = dom.root.getElementById('poster').attributes.getNamedItem('src').value;
         page.metadata.logo = icon
 
         var year = dom.root.getElementById('year') ? parseInt(dom.root.getElementById('year').textContent.match(/\d{4}/), 10) : 0;
@@ -384,10 +488,11 @@ plugin.addURI(PREFIX + ":page:(.*)", function(page, link) {
                             var href = episode.getElementByTagName('a')[0].attributes.getNamedItem('data-href').value;
                             var id = episode.getElementByTagName('a')[0].attributes.getNamedItem('data-id').value;
                             var number = episode.getElementByTagName('a')[0].attributes.getNamedItem('href').value;
+                            s_e = /#(\d+)-(\d+)/.exec(number)
                             var title = episode.getElementByTagName('a')[0].textContent;
                             var plot = episode.getElementByClassName("episode-plot__text")[0] ? episode.getElementByClassName("episode-plot__text")[0].textContent : ''
                             item = page.appendItem(PREFIX + ":play:" + href, "video", {
-                                title: new showtime.RichText(number + ' ' + title.trim()),
+                                title: stitle + ' S:' + s_e[1] + ' ep:' + s_e[2], //new showtime.RichText(number + ' ' + title.trim()),
                                 description: new showtime.RichText(plot.trim()),
                                 icon: icon,
                                 duration: duration,
@@ -397,13 +502,14 @@ plugin.addURI(PREFIX + ":page:(.*)", function(page, link) {
                             });
 
                         }
-                        //    //if (service.thetvdb) {
-                        //    //    item.bindVideoMetadata({
-                        //    //        title: trim(ptitle),
-                        //    //        season: +s,
-                        //    //        episode: +e
-                        //    //    });
-                        //    //}
+                        if (service.thetvdb) {
+                            s_e = /#(\d+)-(\d+)/.exec(number)
+                            item.bindVideoMetadata({
+                                title: stitle +
+                                    (+s_e[1] < 10 ? ' S0' + s_e[1] : ' S' + s_e[1]) +
+                                    (+s_e[2] < 10 ? 'E0' + s_e[2] : 'E' + s_e[2])
+                            });
+                        }
                         //    p(title);
                     }
                 }
@@ -416,12 +522,12 @@ plugin.addURI(PREFIX + ":page:(.*)", function(page, link) {
     page.loading = false;
 });
 // Play links
-plugin.addURI(PREFIX + ":play:(.*)", function(page, url) {
+plugin.addURI(PREFIX + ":play:(.*)", function (page, url) {
     var canonicalUrl = PREFIX + ":play:" + url;
     page.loading = true;
     p(icon)
     p(stitle)
-    
+
     var videoparams = {
         canonicalUrl: canonicalUrl,
         no_fs_scan: true,
@@ -429,18 +535,21 @@ plugin.addURI(PREFIX + ":play:(.*)", function(page, url) {
         season: 0,
         episode: 0,
         sources: [{
-                url: []
-            }
-        ],
+            url: []
+        }],
         subtitles: []
     };
     var res = http.request(BASE_URL + url /*+'?_=' +Date.now()*/ , {
         method: 'GET',
         debug: service.debug,
+        compression: true, // Will send 'Accept-Encoding: gzip' in request
+        caching: true, // Enables Movian's built-in HTTP cache
+        cacheTime: 600,
         headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 6.3; WOW64; rv:42.0) Gecko/20100101 Firefox/42.0',
+            'User-Agent': USER_AGENT,
+            'X-CSRF-Token': token,
             'X-Requested-With': 'XMLHttpRequest',
-            'Accept-Encoding': 'gzip, deflate'
+            'Accept-Encoding': 'gzip'
         }
     });
     var dom = html.parse(res);
@@ -464,22 +573,23 @@ plugin.addURI(PREFIX + ":play:(.*)", function(page, url) {
             });
         }
     }
-    
-    dom.root.getElementByTagName('source').forEach(function(element) {
+
+    eval(res.toString().match(/gon_media.(s=[^;]+)/)[1])
+    for (o in s) {
+        i = s[o];
+        o = base64Decode(o);
         videoparams.sources = [{
-                url: string.entityDecode(element.attributes.getNamedItem('src').value),
-                mimetype: element.attributes.getNamedItem('type').value
-            }
-        ]
+            url: base64Decode(i),
+            mimetype: base64Decode("dmlkZW8vbXA0"),
+        }]
 
         video = "videoparams:" + JSON.stringify(videoparams)
         item = page.appendItem(video, "video", {
-            title: '[' + element.attributes.getNamedItem('type').value + ']-' + title_s_e,
+            title: '[' + parseInt(o) + ']-' + title_s_e,
             icon: icon
         });
-        p(dump(videoparams))
 
-    })
+    }
 
     page.appendItem("search:" + videoparams.title, "directory", {
         title: 'Try Search for: ' + videoparams.title
@@ -491,15 +601,15 @@ plugin.addURI(PREFIX + ":play:(.*)", function(page, url) {
 });
 
 
-plugin.addSearcher(PREFIX + " TV Shows", logo, function(page, query) {
+plugin.addSearcher(PREFIX + " TV Shows", logo, function (page, query) {
     if (service.search) {
         p(service.search)
         page.entries = 0;
         getShows({
             query: query
-        }, function(error, results) {
+        }, function (error, results) {
 
-            results.forEach(function(i) {
+            results.forEach(function (i) {
                 var item = page.appendItem(PREFIX + ":page:" + i.href, "video", {
                     title: new showtime.RichText(i.title.trim()),
                     icon: BASE_URL + i.icon,
@@ -526,18 +636,18 @@ function pageMenu(page) {
         page.metadata.backgroundAlpha = 0.5;
     }
 
-    page.appendAction("pageevent", "sortViewsDec", true, {
-        title: "Sort by Views (Decrementing)",
-        icon: plugin.path + "views/img/sort_views_dec.png"
-    });
-    page.appendAction("pageevent", "sortAlphabeticallyInc", true, {
-        title: "Sort Alphabetically (Incrementing)",
-        icon: plugin.path + "views/img/sort_alpha_inc.png"
-    });
-    page.appendAction("pageevent", "sortAlphabeticallyDec", true, {
-        title: "Sort Alphabetically (Decrementing)",
-        icon: plugin.path + "views/img/sort_alpha_dec.png"
-    });
+    //page.appendAction('',"pageevent", "sortViewsDec", true, {
+    //    title: "Sort by Views (Decrementing)",
+    //    icon: plugin.path + "views/img/sort_views_dec.png"
+    //});
+    //page.appendAction("pageevent", "sortAlphabeticallyInc", true, {
+    //    title: "Sort Alphabetically (Incrementing)",
+    //    icon: plugin.path + "views/img/sort_alpha_inc.png"
+    //});
+    //page.appendAction("pageevent", "sortAlphabeticallyDec", true, {
+    //    title: "Sort Alphabetically (Decrementing)",
+    //    icon: plugin.path + "views/img/sort_alpha_dec.png"
+    //});
     //data-category="popularity"> Popularity
     //data-category="lastupdated">Last updated
     //data-category="newest">Last added
@@ -551,9 +661,10 @@ function pageMenu(page) {
         ["sortDateDec", "Published (decrementing)"],
         ["sortAlphabeticallyDec", "By name (Z->A)"]
     ];
-    page.options.createMultiOpt("sort", "Sort by...", sorts, function(v) {
+    page.options.createMultiOpt("sort", "Sort by...", sorts, function (v) {
         eval(v + "()");
     });
+
 
     function sortAlphabeticallyInc() {
         var its = sort(items, {
@@ -590,19 +701,19 @@ function pageMenu(page) {
         pageUpdateItemsPositions(its);
     }
 
-    page.onEvent('sortAlphabeticallyInc', function() {
+    page.onEvent('sortAlphabeticallyInc', function () {
         sortAlphabeticallyInc();
     });
-    page.onEvent('sortAlphabeticallyDec', function() {
+    page.onEvent('sortAlphabeticallyDec', function () {
         sortAlphabeticallyDec();
     });
-    page.onEvent('sortViewsDec', function() {
+    page.onEvent('sortViewsDec', function () {
         sortViewsDec();
     });
-    page.onEvent('sortDateDec', function() {
+    page.onEvent('sortDateDec', function () {
         sortDateDec();
     });
-    page.onEvent('sortDefault', function() {
+    page.onEvent('sortDefault', function () {
         sortDefault();
     });
 }
@@ -662,7 +773,7 @@ function SortBy() {
     return new Function('a', 'b', f + '0');
 }
 // Add to RegExp prototype
-RegExp.prototype.execAll = function(str) {
+RegExp.prototype.execAll = function (str) {
     var match = null;
     for (var matches = []; null !== (match = this.exec(str));) {
         var matchArray = [],
@@ -721,24 +832,29 @@ function trim(s) {
     return s;
 }
 
+function base64Decode(data) {
+    return String(Duktape.dec('base64', data));
+}
 
 
-getShows = function(options, callback) {
+getShows = function (options, callback) {
     start = Date.now()
     p(start)
     http.request(service.geoURL, {
         method: 'GET',
+        compression: true, // Will send 'Accept-Encoding: gzip' in request
+        caching: true, // Enables Movian's built-in HTTP cache
+        cacheTime: 600,
         headers: {
             'User-Agent': USER_AGENT,
-            'Accept-Encoding': 'gzip, deflate'
         }
-    }, function(error, response) {
+    }, function (error, response) {
         if (!error && response.headers.Status === '200 OK') {
             p(response.headers.Status === '200 OK')
 
             var list = [];
             var dom = html.parse(response.toString())
-            dom.root.getElementByClassName('index show').forEach(function(element) {
+            dom.root.getElementByClassName('index show').forEach(function (element) {
                 var show = {}
                 show.title = element.getElementByClassName('name')[0].textContent
                 show.href = element.getElementByClassName('name')[0].attributes.getNamedItem('href').value;
@@ -773,7 +889,7 @@ getShows = function(options, callback) {
 
 function p(message) {
     if (service.debug == "1") {
-        print(message);
+        console.log(message);
     }
 }
 

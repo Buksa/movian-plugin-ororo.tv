@@ -1,14 +1,14 @@
 {
-	"type": "ecmascript",
-	"id": "ororo",
-	"file": "ororo.js",
-	"showtimeVersion": "4.10",
-	"version": "0.7.17",
-	"author": "Buksa,lprot",
-	"title": "ororo.tv",
-	"icon": "logo.png",
-	"synopsis": "Movian plugin to watch tv shows from ororo.tv",
-	"description": "<p>Ororo.tv - plugin is the integration of the website ororo.tv.\n\nTV Shows in English with English subtitles<p>",
-	"category": "video",
-	"homepage": "https://github.com/Buksa/movian-plugin-ororo.tv"
+    "type": "ecmascript",
+    "id": "ororo",
+    "file": "ororo.js",
+    "showtimeVersion": "5.0.156",
+    "version": "0.8.5",
+    "author": "Buksa",
+    "title": "ororo.tv",
+    "icon": "logo.png",
+    "category": "video",
+    "synopsis": "Movian plugin to watch tv shows from ororo.tv",
+    "description": "<p>Ororo.tv - plugin is the integration of the website ororo.tv.\n\nTV Shows in English with English subtitles<p>",
+    "homepage": "https://github.com/Buksa/movian-plugin-ororo.tv"
 }

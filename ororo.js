@@ -21,11 +21,12 @@ var http = require('movian/http');
 var html = require('movian/html');
 var string = require('native/string');
 var io = require("native/io");
-//var popu
+
 
 var plugin_info = plugin.getDescriptor();
 var PREFIX = plugin_info.id;
-var USER_AGENT = 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:40.0) Gecko/20100101 Firefox/40.0'
+var USER_AGENT = 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:40.0) Gecko/20100101 Firefox/40.0';
+var UA = 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.87 Safari/537.36';
 var BASE_URL = 'https://ororo.tv';
 var logo = plugin.path + plugin_info.icon;
 var loggedIn = false;
@@ -94,191 +95,95 @@ plugin.addHTTPAuth("http.*ororo.tv.*", function (authreq) {
 });
 
 
-  /*
-   * Login user
-   * The headweb session is handled via standard HTTP cookies.
-   * This is taken care of by Showtime's HTTP client.
-   * If 'query' is set we will ask user for username/password
-   * otherwise we just try to login using the credentials stored in 
-   * Showtime's keyring.
-   *
-   */
-
-  function login(query) {
-    
-        if(loggedIn)
-          return false;
-    
-        var reason = "Login required";
-        var do_query = false;
-
-        while(true) {   
-          var credentials = plugin.getAuthCredentials("Headweb streaming service",reason, do_query);
-        
-          if(!credentials) {
-        if(query && !do_query) {
-          do_query = true;
-          continue;
-        }
-        reason = "No credentials"
+function login(query) {
+    if (loggedIn) {
         return false;
-          }
-    
-          if(credentials.rejected){
-            reason = 'Rejected by user'
-              console.log('Rejected by use')
-        return false;}
-    
-          var v = showtime.httpReq("https://api.headweb.com/v4/user/login", {
-    
-            postdata: {
-          username: credentials.username,
-          password: credentials.password
-            },
-    
-            args: {
-          apikey: APIKEY
+    }
+
+    var reason = 'Login required';
+    var do_query = false;
+
+    while (1) {
+        var credentials = plugin.getAuthCredentials('ororo.tv streaming service', reason, do_query);
+        if (!credentials) {
+            if (query && !do_query) {
+                do_query = true;
+                continue;
             }
-          });
-    
-          var doc = XML.parse(v).response;
-          if(doc.error) {
-        reason = doc.error;
-        do_query = true;
-        continue;
-          }
-          showtime.trace('Logged in to Headweb as user: ' + credentials.username);
-          //loggedIn = true;
-          return false;
+            return 'No credentials';
         }
-      }   
-plugin.addURI(PREFIX + ":login:(.*):(.*)", function (page, showAuth, token) {
-    var loggedIn = false;
-    // if(login(true))
-    // return false;
 
-    headers = {
-        origin: 'https://ororo.tv',
-        accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
-        authority: 'ororo.tv',
-        referer: 'https://ororo.tv/en/modals/login',
-        'accept-encoding': 'gzip, deflate',
-        'accept-language': 'en-US,en;q=0.9,ru;q=0.8',
-        'upgrade-insecure-requests': '1',
-        'content-type': 'application/x-www-form-urlencoded',
-        'cache-control': 'max-age=0',
-      };
-      
-
-    postdata = {
-         utf8: '✓',
-         commit: 'Log in',
-         'user[email]': '',
-         'user[password]': ''
-    };
-
-
-    http.request(
-        'https://ororo.tv/en/users/sign_in.json',
-        {
-          method: 'POST',
-          //noFail: true,
-          headers: {
-            origin: 'https://ororo.tv',
-            accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
-            authority: 'ororo.tv',
-            referer: 'https://ororo.tv/en/modals/login',
-            'accept-encoding': 'gzip, deflate',
-            'accept-language': 'en-US,en;q=0.9,ru;q=0.8',
-            'upgrade-insecure-requests': '1',
-            'content-type': 'application/x-www-form-urlencoded',
-            'cache-control': 'max-age=0'
-          },
-          postdata: {
-            utf8: '✓',
-            commit: 'Log in',
-            'user[email]': '',
-            'user[password]': ''
-          }
-        },
-        function(err, result) {
-          if (err) {
-            page.error(err);
-          }
-          console.log(result);
-          page.redirect(PREFIX + ':start');
+        if (credentials.rejected) {
+            console.log('Rejected by user');
+            return 'Rejected by user';
         }
-      );
-      
-    console.log(v.tostring());
-    page.flush();
-    page.redirect(PREFIX + ':start');
+        try {
+            console.log('dddddddddddddddddddddd');
+            logout();
+            var v = http.request('https://ororo.tv/en/users/sign_in.json', {
+                noFollow: true,
+                noFail: 0,
+                debug: true,
+                postdata: {
+                    'commit': 'Log in',
+                    'user[email]': credentials.username,
+                    'user[password]': credentials.password,
+                    'utf8': '✓',
+                },
+                headers: {
+                    'Origin': 'https://ororo.tv',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.62 Safari/537.36',
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Authority': 'ororo.tv',
+                    'Referer': 'https://ororo.tv/en/modals/login',
+                },
+            });
+        } catch (error) {
+            console.log(v);
+            console.log(error);
+        }
 
-    // // popup.notify('Start login procedure for Ororo.tv', 5);
-    // console.log(credentials)
-    // var credentials = plugin.getAuthCredentials("Ororo.tv", "Login Required", 1, null, true);
-    // console.log(credentials)
-    // if (credentials.rejected) {
-    //     page.flush();
-    //     page.redirect(PREFIX + ':start');
-    // } //return "Rejected by user"
-    // // if (credentials.username !== "" && credentials.password !== "") {
+        if (undefined == v) {
+            reason = 'error';
+            do_query = true;
+            continue;
+        }
+        console.log('Logged in to ororo.tv as user: ' + credentials.username);
+        // io.httpInspectorCreate('https://ororo.tv/api/v2/.*', function (ctrl) {
+        //     console.log(credentials);
+        //     ctrl.setHeader('Authorization', 'Basic ' + Duktape.enc('base64', credentials.username + ':' + credentials.password));
+        //     return 0;
+        // });
+        loggedIn = true;
+        return false;
+    }
+}
 
-
-    //      v = http.request('https://ororo.tv/en/users/sign_in.json', {
-    //          method: 'POST',
-    // //         noFollow: true,
-    // //         noFail: 0,
-    //          debug: true,
-    //          postdata: {
-    //             'commit': 'Log in',
-    //              'user[email]': credentials.username,
-    //              'user[password]': credentials.password,
-    //              'utf8': '✓'
-    //         },
-    //          headers: {
-    //              "Origin": "https://ororo.tv",
-    //              "X-CSRF-Token": token,
-    //              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.62 Safari/537.36",
-    //              "Content-Type": "application/x-www-form-urlencoded",
-    //              "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
-    //              "X-Requested-With": "XMLHttpRequest",
-    //              "Authority": "ororo.tv",
-    //              "Referer": "https://ororo.tv/en/modals/login",
-    //              //         "Accept-Encoding": "gzip, deflate, br",
-    //              //         "Accept-Language": "en-US,en;q=0.8"
-    //          }
-    //      },function(err, result) {
-    //          console.log
-    //         if(err) {
-    //           page.error(err);
-    //         }
-    //     });
-    //     });
-    // //     console.log(v.toString())
-    // // console.log('delaem zapros')
-    // // console.log(credentials)
-    // // if (v.statuscode !== '200') return
-    // // if (v.statuscode == '200') {
-    // //     popup.notify('status 200', 5);
-    // // }
-    // //}
-    // //  page.redirect(PREFIX + ':start');
-
-});
-plugin.addURI(PREFIX + ":logout", function (page) {
-    var request = http.request('https://ororo.tv/en/users/sign_out', {
+function logout() {
+    http.request('https://ororo.tv/en/users/sign_out', {
         // noFollow: true,
         headers: {
             // 'Referer': BASE_URL + 'en/users/sign_out',
-            'User-Agent': USER_AGENT
-        }
+            'User-Agent': UA,
+        },
     });
-    loggedIn = false
+    loggedIn = false;
+}
+plugin.addURI(PREFIX + ':login', function (page) {
+    login(true);
+    popup.notify('Successfully login to Ororo.tv', 2);
+    page.loading = false;
+    page.redirect(PREFIX + ':start');
+});
+plugin.addURI(PREFIX + ':logout', function (page) {
+    logout();
     popup.notify('Successfully logout from Ororo.tv', 2);
     page.loading = false;
-    page.redirect(PREFIX + ":start");
+    page.redirect(PREFIX + ':start');
 });
+
 //First level start page
 plugin.addURI(PREFIX + ":start", function (page) {
     console.log(plugin_info.id + ' is ' + plugin_info.version);
@@ -290,7 +195,7 @@ plugin.addURI(PREFIX + ":start", function (page) {
             page.error("TOS not accepted. plugin disabled");
             return;
         }
-
+    login(true);
     page.metadata.logo = logo;
     page.metadata.title = PREFIX;
 
@@ -318,7 +223,7 @@ plugin.addURI(PREFIX + ":start", function (page) {
         token = MetaTag(dom, "csrf-token")
         page.appendItem(PREFIX + ':login:true:' + token, 'directory', {
             title: 'login'
-        })
+        });
     } else {
         name = dom.root.getElementByClassName('dropmodule-profile')[0].getElementByTagName('span')[0].textContent
         page.appendItem(PREFIX + ":logout", "directory", {
@@ -342,8 +247,9 @@ plugin.addURI(PREFIX + ":browse:(.*)", function (page, link) {
     pageMenu(page);
     items = [];
     items_tmp = [];
-
-    var resp = http.request(BASE_URL + link, {
+    //view-source:https://ororo.tv/en/shows?page=1&limit=2000
+    //var resp = http.request(BASE_URL + link, {//+'?page=1&limit=2000', {
+    var resp = http.request(BASE_URL + link +'?page=1&limit=2000', {    
         method: 'GET',
         compression: true, // Will send 'Accept-Encoding: gzip' in request
         caching: true, // Enables Movian's built-in HTTP cache
@@ -353,58 +259,103 @@ plugin.addURI(PREFIX + ":browse:(.*)", function (page, link) {
             //    'Accept-Encoding': 'gzip, deflate'
         }
     });
+    infoshow = eval(/items":([^\]]+.)/.exec(resp)[1]);
+    console.log(infoshow.length);
+    //var infoshow = [];
+    // itemss.forEach(function (element, i) {
+    //     page.metadata.title = new showtime.RichText('Ororo.tv | ' + (link == '/en' ? "TV Shows" : "Movies") + ' [' + i + ']');
+    //     var show = {}
+    //     show.newest = element.created_at;
+    //     show.title = element.title;
+    //     show.href = element.url;
+    //     show.icon = element.image;
+    //     infoshow.push(show);
+    //     console.log(show);
+    //     console.log(element);
+
+    // });
+    var its = sort(infoshow, {
+        created_at: 0
+    });
+    its.forEach(function (i) {
+        var item = page.appendItem(PREFIX + ":page:" + i.url, "video", {
+            title: new showtime.RichText(i.title.trim()),
+            icon: i.image,
+            description: i.desc + '\n' + i.lastupdated,
+            rating: i.imdb_rating * 10,
+            genre: i.genre,
+            year: parseInt(i.year, 10)
+        });
+        item.title = i.title
+        item.lastupdated = i.lastupdated;
+        item.newest = i.newest
+        item.rating = i.imdb_rating;
+        //          item.free = i.free.length;
+        items.push(item);
+        //    //items_tmp.push(item);
+    });
+    try {
+        items.forEach(function (items, i) {
+            items.id = i
+        })
+        items_tmp = page.getItems();
+
+    } catch (ex) {
+        t("Error while parsing main menu order");
+        err(ex);
+    }
 
     var dom = html.parse(resp).root;
     console.log(dom.getElementByClassName('card-inner').length);
     //  token = MetaTag(dom, "csrf-token")
-    var infoshow = []
-    console.log('sssssssssssssss')
-    dom.getElementByClassName('card-inner').forEach(function (element, i) {
-        console.log(element)
-        console.log(i)
+    // var infoshow = []
+    // console.log('sssssssssssssss')
+    // dom.getElementByClassName('card-inner').forEach(function (element, i) {
+    //     console.log(element)
+    //     console.log(i)
 
-        page.metadata.title = new showtime.RichText('Ororo.tv | ' + (link == '/en' ? "TV Shows" : "Movies") + ' [' + i + ']');
-        var show = {}
-        show.newest = element.attributes.getNamedItem('data-newest').value;
-        //     show.title = element.getElementByClassName('card-title')[0].textContent.trim();
-        //     show.href = element.getElementByClassName('card-title')[0].attributes.getNamedItem('href').value;
-        //     icon = element.getElementByTagName('img')[0].attributes;
-        //     show.icon = (icon.length <= 2 ? icon.getNamedItem('src').value : icon.getNamedItem('data-original').value)
-        //     show.desc = element.getElementByClassName('card-text')[0].textContent
-        //     show.year = element.getElementByClassName('js-card-year')[0].textContent;
-        //     //show.rating = parseInt((element.getElementByClassName('star')[0].getElementByClassName('value')[0].textContent ? element.getElementByClassName('star')[0].getElementByClassName('value')[0].textContent : '0'), 10);
-        //     show.rating = parseInt(element.attributes.getNamedItem('data-rating').value, 10);
-        //     show.lastupdated = element.attributes.getNamedItem('data-lastupdated').value;
-        //     show.genre = element.attributes.getNamedItem('data-info').value;
-        //     show.free = element.getElementByClassName('show_block free').length;
-        //     console.log(show)
-        //     if (show.free) {
-        //         show.lastupdated = Date.now();
-        //         show.title = '<font color="#52f7b9">' + show.title + '</font>';
-        //     }
-        //     infoshow.push(show);
-        // })
-        // var its = sort(infoshow, {
-        //     lastupdated: 0
-        // });
+    //     page.metadata.title = new showtime.RichText('Ororo.tv | ' + (link == '/en' ? "TV Shows" : "Movies") + ' [' + i + ']');
+    //     var show = {}
+    //     show.newest = element.attributes.getNamedItem('data-newest').value;
+    //     //     show.title = element.getElementByClassName('card-title')[0].textContent.trim();
+    //     //     show.href = element.getElementByClassName('card-title')[0].attributes.getNamedItem('href').value;
+    //     //     icon = element.getElementByTagName('img')[0].attributes;
+    //     //     show.icon = (icon.length <= 2 ? icon.getNamedItem('src').value : icon.getNamedItem('data-original').value)
+    //     //     show.desc = element.getElementByClassName('card-text')[0].textContent
+    //     //     show.year = element.getElementByClassName('js-card-year')[0].textContent;
+    //     //     //show.rating = parseInt((element.getElementByClassName('star')[0].getElementByClassName('value')[0].textContent ? element.getElementByClassName('star')[0].getElementByClassName('value')[0].textContent : '0'), 10);
+    //     //     show.rating = parseInt(element.attributes.getNamedItem('data-rating').value, 10);
+    //     //     show.lastupdated = element.attributes.getNamedItem('data-lastupdated').value;
+    //     //     show.genre = element.attributes.getNamedItem('data-info').value;
+    //     //     show.free = element.getElementByClassName('show_block free').length;
+    //     //     console.log(show)
+    //     //     if (show.free) {
+    //     //         show.lastupdated = Date.now();
+    //     //         show.title = '<font color="#52f7b9">' + show.title + '</font>';
+    //     //     }
+    //     //     infoshow.push(show);
+    //     // })
+    //     // var its = sort(infoshow, {
+    //     //     lastupdated: 0
+    //     // });
 
-        // its.forEach(function (i) {
-        //     var item = page.appendItem(PREFIX + ":page:" + i.href, "video", {
-        //         title: new showtime.RichText(i.title.trim()),
-        //         icon: i.icon,
-        //         description: i.desc + '\n' + i.lastupdated,
-        //         rating: i.rating * 10,
-        //         genre: i.genre,
-        //         year: parseInt(i.year, 10)
-        //     });
-        //     item.title = i.title
-        //     item.lastupdated = i.lastupdated;
-        //     item.newest = i.newest
-        //     item.rating = i.rating;
-        //     item.free = i.free.length;
-        //     items.push(item);
-        //     //    //items_tmp.push(item);
-    })
+    //     // its.forEach(function (i) {
+    //     //     var item = page.appendItem(PREFIX + ":page:" + i.href, "video", {
+    //     //         title: new showtime.RichText(i.title.trim()),
+    //     //         icon: i.icon,
+    //     //         description: i.desc + '\n' + i.lastupdated,
+    //     //         rating: i.rating * 10,
+    //     //         genre: i.genre,
+    //     //         year: parseInt(i.year, 10)
+    //     //     });
+    //     //     item.title = i.title
+    //     //     item.lastupdated = i.lastupdated;
+    //     //     item.newest = i.newest
+    //     //     item.rating = i.rating;
+    //     //     item.free = i.free.length;
+    //     //     items.push(item);
+    //     //     //    //items_tmp.push(item);
+    // })
 
     // try {
     //     items.forEach(function (items, i) {
@@ -539,7 +490,7 @@ plugin.addURI(PREFIX + ":play:(.*)", function (page, url) {
         }],
         subtitles: []
     };
-    var res = http.request(BASE_URL + url /*+'?_=' +Date.now()*/ , {
+    var res = http.request(BASE_URL + url /*+'?_=' +Date.now()*/, {
         method: 'GET',
         debug: service.debug,
         compression: true, // Will send 'Accept-Encoding: gzip' in request
